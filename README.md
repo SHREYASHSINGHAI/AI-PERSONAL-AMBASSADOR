@@ -13,4 +13,4 @@ Lightweight and Accessible: Built on Replit for easy setup, development, and dep
 🚀 Getting Started
 
 Clone or Fork on Replit: Access the project directly on Replit by forking the repository or cloning it:
-
+https: git clone https://github.com/SHREYASHSINGHAI/AI-PERSONAL-AMBASSADOR.git
