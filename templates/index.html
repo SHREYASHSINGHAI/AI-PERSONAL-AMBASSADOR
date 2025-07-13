@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ bot_name }}'s Assistant</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .chat-container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            height: 80vh;
+            overflow: hidden;
+        }
+        .chat-header {
+            background-color: #007bff; /* Default blue for guest mode */
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            font-size: 1.2em;
+            transition: background-color 0.3s ease; /* Smooth transition for color change */
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #e9ecef;
+            border-bottom: 1px solid #ddd;
+        }
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .message.user {
+            align-items: flex-end;
+        }
+        .message.bot {
+            align-items: flex-start;
+        }
+        .message-bubble {
+            padding: 10px 15px;
+            border-radius: 20px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .message.user .message-bubble {
+            background-color: #007bff;
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        .message.bot .message-bubble {
+            background-color: #f0f0f0;
+            color: #333;
+            border-bottom-left-radius: 5px;
+        }
+        .chat-input-form {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #eee;
+        }
+        .chat-input-form input[type="text"] {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            margin-right: 10px;
+            font-size: 1em;
+        }
+        .chat-input-form button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .chat-input-form button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header" id="chat-header">
+            {{ bot_name }}
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot">
+                <div class="message-bubble">
+                    👋 Hello! I'm {{ bot_name }}, {{ creator_name }}'s assistant. How can I help you today?
+                </div>
+            </div>
+        </div>
+
+        <form class="chat-input-form" id="chat-form">
+            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
+    <script>
+        const botName = "{{ bot_name }}";
+        const creatorName = "{{ creator_name }}";
+
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatHeader = document.getElementById('chat-header');
+
+        chatForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent page reload
+            const message = userInput.value.trim();
+            if (message === '') return;
+
+            // Display user message
+            appendMessage(message, 'user');
+            userInput.value = ''; // Clear input field
+
+            // Show typing indicator or loading message
+            const loadingMessage = appendMessage('...', 'bot', true); // true for is_loading
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'user_input': message
+                    })
+                });
+
+                const data = await response.json();
+
+                // Remove loading message
+                chatMessages.removeChild(loadingMessage);
+
+                // Display bot response
+                appendMessage(data.response, 'bot');
+
+                // --- Update header color based on creator status ---
+                if (data.is_creator) {
+                    chatHeader.style.backgroundColor = "#dc3545"; // Red for creator
+                } else {
+                    chatHeader.style.backgroundColor = "#007bff"; // Blue for guest
+                }
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                // Remove loading message
+                chatMessages.removeChild(loadingMessage);
+                appendMessage('Error: Could not get a response. Please try again.', 'bot');
+            }
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+        });
+
+        function appendMessage(text, sender, isLoading = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', sender);
+
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.classList.add('message-bubble');
+
+            if (isLoading) {
+                bubbleDiv.textContent = 'Thinking...';
+                bubbleDiv.classList.add('loading-dots'); // Add a class for potential animation
+            } else {
+                bubbleDiv.textContent = text;
+            }
+
+            messageDiv.appendChild(bubbleDiv);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll
+            return messageDiv; // Return the message element so it can be removed if it's a loading message
+        }
+
+        // --- Initial header color setting on page load ---
+        // Fetch initial status to set header color immediately
+        async function setInitialHeaderColor() {
+            try {
+                const response = await fetch('/chat_status'); // A new endpoint to get just the status
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.is_creator) {
+                        chatHeader.style.backgroundColor = "#dc3545"; // Red
+                    } else {
+                        chatHeader.style.backgroundColor = "#007bff"; // Blue
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching initial status:', error);
+            }
+        }
+
+        setInitialHeaderColor(); // Call on page load
+    </script>
+</body>
+</html>

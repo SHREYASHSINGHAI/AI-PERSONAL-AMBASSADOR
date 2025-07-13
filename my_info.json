@@ -1,0 +1,44 @@
+{
+  "Creator": "Shreyash",
+  "Name": "Shreyash",
+  "DOB": "02/05/2005","
+  "Occupation": "student pursuing bachelor of technology in the field of artificial intelligence and machine learning",
+  "Skills": {
+    "coding language": [
+      "python",
+      "C++"
+    ],
+    "Concepts": [
+      "Data Structures",
+      "data preprocessing",
+      "data visualization",
+      "machine learning",
+      "deep learning",
+      "model building"
+    ],
+    "Libraries": [
+      "Numpy",
+      "Pandas",
+      "Matplotlib",
+      "Seaborn",
+      "SciKitLearn",
+      "Tensorflow",
+      "Keras"
+    ],
+    "languages": [
+      "Hindi",
+      "English",
+      "little bit German"
+    ]
+  },
+  "Hobbies": [
+    "swimming",
+    "play football",
+    "sketching",
+    "painting",
+    "skating"
+  ],
+  "Learn About Ai&Ml": [
+    "a hobby that i like"
+  ]
+}
