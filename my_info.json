@@ -1,8 +1,8 @@
 {
   "Creator": "Shreyash",
   "Name": "Shreyash",
-  "DOB": "02/05/2005","
-  "Occupation": "student pursuing bachelor of technology in the field of artificial intelligence and machine learning",
+  "DOB": "02/05/2005",
+  "Occupation": "Student, pursuing Bachelor in Technology, 3rd year B.Tech",
   "Skills": {
     "coding language": [
       "python",
@@ -38,7 +38,14 @@
     "painting",
     "skating"
   ],
-  "Learn About Ai&Ml": [
-    "a hobby that i like"
+  "Education": [
+    "high school : DPS BHILAI, CHHATTISGARH, INDIA",
+    "passed high school in 2023",
+    "College : VIT BHOPAL",
+    "graduation year 2027"
+  ],
+  "Social Media": [
+    "Instagram: https://www.instagram.com/shrey_arts01?igsh=dzQ1azBvbXUyYm9s",
+    "Github: https://github.com/SHREYASHSINGHAI"
   ]
 }
