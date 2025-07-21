@@ -579,8 +579,10 @@ def chat():
     # Return the bot's response and creator status as JSON to the web page
     return {'response': bot_response, 'is_creator': is_creator_logged_in}
 
+# --- SENTIMENT ANALYSIS FUNCTIONS ---
+
 def analyze_sentiment(text):
-     """Analyzes the sentiment of the given text using TextBlob."""
+    """Analyzes the sentiment of the given text using TextBlob."""
     analysis = TextBlob(text)
     polarity = analysis.sentiment.polarity
     
