@@ -1,18 +1,21 @@
 import os
 import json
 import hashlib
+import google.generativeai as genai
+
+from textblob import TextBlob  #for sentiment analysis
+from collections import defaultdict  #to count the sentiments
+
 from datetime import timedelta, datetime, date  # Added date import
 from flask import Flask, request, render_template, session, redirect, url_for
 from dotenv import load_dotenv  # For loading environment variables
 
 # Load environment variables from .env file (for local development)
-# In Replit, secrets are directly accessible via os.getenv.
 load_dotenv()
 
 app = Flask(__name__)
 
 # --- API Keys & Flask Secret Key Configuration ---
-# IMPORTANT: You MUST set your GEMINI_API_KEY and FLASK_SECRET_KEY in Replit Secrets.
 
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 flask_secret_key = os.getenv(
@@ -38,7 +41,7 @@ else:
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(
     minutes=30)  # Sessions last 30 minutes
 
-import google.generativeai as genai
+
 try:
     genai.configure(api_key=gemini_api_key)
 except Exception as e:
@@ -52,6 +55,7 @@ BOT_NAME = "Shrey"
 CREATOR_NAME = "Shreyash"
 PASSWORD_FILE = "creator_password.hash"
 INFO_FILE = "myinfo.json"
+SENTIMENT_HISTORY_FILE = "user_sentiment_history.json"
 
 
 # --- Password Setup (Manual for Replit) ---
@@ -123,7 +127,31 @@ def get_default_info():
         ["swimming", "play football", "sketching", "painting", "skating"],
     }
 
+def load_sentiment_history():
+    #load sentiment history from json file.
+    try: 
+        with open(SENTIMENT_HISTORY_FILE) as f:
+            data = json.load(f)
+    #for sentiment count ensure data structure is dictionary
+            if not isinstance(data,dict):
+                print("f{BOT_NAME} sentiment file is corrupted or in an unexpected format.\n")
+                print("resetting")
+                return {}
+            return data
+    except (FileNotFoundError,josn.JSONDecodeError):
+        print("{SENTIMENT_HISTORY_FILE} not found or corrupted.Initializing empty sentiment history.")
+        return {}
 
+def save_sentiment_history(data):
+    #saves sentiment history to json file
+    try:
+        with open(SENTIMENT_HISTORY_FILE) as f:
+            json.dump(data,findent=2)
+        return True
+    except Exception as e:
+        print("f{BOT_NAME} Error in saving sentiments in the sentiment history file.")
+        return False
+sentiment_history=load_sentiment_history()
 def load_info():
     """Loads information from the JSON file or returns default."""
     try:
@@ -322,6 +350,10 @@ def chat():
 
     user_input = request.form['user_input'].strip()
     bot_response = ""
+
+    #SENTIMENT ANALYSIS AND LOGGING   
+    sentiment_analysis_result = analyze_sentiment(user_input)
+    log_sentiment(user_input, sentiment_analysis_result)
 
     # Handle creator login command
     if user_input.lower().startswith(
@@ -542,18 +574,81 @@ def chat():
     # We store a limited number of recent exchanges to keep the prompt size manageable.
     session_chat_history.append({"role": "user", "parts": [user_input]})
     session_chat_history.append({"role": "model", "parts": [bot_response]})
-    session['chat_history'] = session_chat_history[
-        -6:]  # Keep last 3 user and 3 model messages
+    session['chat_history'] = session_chat_history[-6:]  # Keep last 3 user and 3 model messages
 
     # Return the bot's response and creator status as JSON to the web page
     return {'response': bot_response, 'is_creator': is_creator_logged_in}
 
+def analyze_sentiment(text):
+     """Analyzes the sentiment of the given text using TextBlob."""
+    analysis = TextBlob(text)
+    polarity = analysis.sentiment.polarity
+    
+    if polarity > 0.1: # A small threshold to consider as positive
+        sentiment_label = "positive"
+    elif polarity < -0.1: # A small threshold to consider as negative
+        sentiment_label = "negative"
+    else:
+        sentiment_label = "neutral"
+    
+    return {
+        "text": text,
+        "polarity": polarity,
+        "subjectivity": analysis.sentiment.subjectivity,
+        "sentiment_label": sentiment_label
+    }
+def log_sentiment(user_input, sentiment_data):
+    """Logs the user input and its sentiment data to the history file."""
+    global sentiment_history # Access the global sentiment_history dictionary
+    
+    # Use today's date as a key for daily logging
+    today_str = date.today().strftime("%Y-%m-%d")
+    
+    if today_str not in sentiment_history:
+        sentiment_history[today_str] = {
+            "total_interactions": 0,
+            "sentiment_counts": {"positive": 0, "negative": 0, "neutral": 0},
+            "interactions": [] # To store details of each interaction
+        }
+    
+    sentiment_history[today_str]["total_interactions"] += 1
+    sentiment_history[today_str]["sentiment_counts"][sentiment_data["sentiment_label"]] += 1
+    
+    # Store the full interaction for review, including timestamp
+    sentiment_history[today_str]["interactions"].append({
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "user_input": user_input,
+        "sentiment": sentiment_data["sentiment_label"],
+        "polarity": sentiment_data["polarity"]
+    })
+    
+    save_sentiment_history(sentiment_history)
 
 # New endpoint to provide initial creator status to the frontend
 @app.route('/chat_status', methods=['GET'])
 def chat_status():
     is_creator_logged_in = session.get('is_creator_logged_in', False)
     return {'is_creator': is_creator_logged_in}
+    
+@app.route('/review_sentiment')
+def review_sentiment():
+    if not session.get('is_creator_logged_in'):
+        return redirect(url_for('index')) # Redirect if not logged in
+    current_sentiment_history = load_sentiment_history()
+    sentiment_display_data = []
+    for day, data in current_sentiment_history.items():
+        sentiment_display_data.append({
+            "date": day,
+            "total_interactions": data["total_interactions"],
+            "positive": data["sentiment_counts"].get("positive", 0),
+            "negative": data["sentiment_counts"].get("negative", 0),
+            "neutral": data["sentiment_counts"].get("neutral", 0),
+            "interactions_detail": data["interactions"]
+        })
+    # Sort by date, newest first
+    sentiment_display_data.sort(key=lambda x: x['date'], reverse=True)
+    return render_template('review_sentiment.html', sentiment_data=sentiment_display_data)
+
 
 
 # --- This part ensures the Flask app runs when Replit starts it ---
