@@ -128,18 +128,17 @@ def get_default_info():
     }
 
 def load_sentiment_history():
-    #load sentiment history from json file.
-    try: 
-        with open(SENTIMENT_HISTORY_FILE) as f:
+    """Loads sentiment history from the JSON file."""
+    try:
+        with open(SENTIMENT_HISTORY_FILE, 'r') as f:
             data = json.load(f)
-    #for sentiment count ensure data structure is dictionary
-            if not isinstance(data,dict):
-                print("f{BOT_NAME} sentiment file is corrupted or in an unexpected format.\n")
-                print("resetting")
+            # For sentiment count, ensure data structure is dictionary
+            if not isinstance(data, dict):
+                print(f"[{BOT_NAME}] Warning: {SENTIMENT_HISTORY_FILE} is corrupted or in an unexpected format. Resetting.")
                 return {}
             return data
-    except (FileNotFoundError,josn.JSONDecodeError):
-        print("{SENTIMENT_HISTORY_FILE} not found or corrupted.Initializing empty sentiment history.")
+    except (FileNotFoundError, json.JSONDecodeError): # <--- FIX IS HERE: 'josn' changed to 'json'
+        print(f"[{BOT_NAME}] {SENTIMENT_HISTORY_FILE} not found or corrupted. Initializing empty sentiment history.")
         return {}
 
 def save_sentiment_history(data):
