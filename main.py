@@ -338,7 +338,11 @@ def index():
                            bot_name=BOT_NAME,
                            creator_name=CREATOR_NAME,
                            is_creator=is_creator_status)
-
+@app.route('/logout')
+def logout():
+    session.pop('is_creator_logged_in', None)
+    session.pop('chat_history', None)
+    return redirect(url_for('index'))
 
 @app.route('/chat', methods=['POST'])
 def chat():
