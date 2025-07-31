@@ -2,7 +2,11 @@ import os
 import json
 import hashlib
 import google.generativeai as genai
+import smtplib
+import ssl
+import random
 
+from email.message import EmailMessage
 from textblob import TextBlob
 from collections import defaultdict
 
@@ -19,6 +23,10 @@ app = Flask(__name__)
 
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 flask_secret_key = os.getenv("FLASK_SECRET_KEY")
+email_address = os.getenv("EMAIL_ADDRESS")
+email_password = os.getenv("EMAIL_PASSWORD")
+email_smtp_server = os.getenv("EMAIL_SMTP_SERVER")
+email_smtp_port = os.getenv("EMAIL_SMTP_PORT")
 
 if not gemini_api_key:
     print("CRITICAL ERROR: GEMINI_API_KEY environment variable not set. AI functions will fail.")
@@ -159,8 +167,32 @@ def calculate_age(dob_str):
     except ValueError:
         return None
 
+def send_email_with_otp(recipient_email, otp_code):
+    """Sends a one-time password to the specified email address."""
+    if not all([email_address, email_password, email_smtp_server, email_smtp_port]):
+        print("Email sending is not configured. Please set EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_SMTP_SERVER, and EMAIL_SMTP_PORT in your Replit Secrets.")
+        return False
+
+    msg = EmailMessage()
+    msg.set_content(f"Your one-time password (OTP) is: {otp_code}\n\nThis code is valid for 5 minutes.")
+    msg['Subject'] = f"{BOT_NAME} - Your Login OTP"
+    msg['From'] = email_address
+    msg['To'] = recipient_email
+
+    context = ssl.create_default_context()
+    try:
+        with smtplib.SMTP(email_smtp_server, int(email_smtp_port)) as smtp:
+            smtp.starttls(context=context)
+            smtp.login(email_address, email_password)
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
+
 # --- AI Interaction Logic ---
-def ask_ai(question, current_my_info, is_creator_session, session_chat_history):
+def ask_ai(question, current_my_info, is_creator_mode_active, session_chat_history):
     """Centralized response generator with context and creator awareness."""
     creator_age = None
     current_my_info_for_ai = current_my_info.copy()
@@ -170,7 +202,7 @@ def ask_ai(question, current_my_info, is_creator_session, session_chat_history):
             current_my_info_for_ai["Age"] = calculated_age
 
     update_instruction = ""
-    if is_creator_session:
+    if is_creator_mode_active:
         update_instruction = f"""
         IMPORTANT CREATOR MODE INSTRUCTIONS:
         If the user (Creator) expresses a clear intent to MODIFY, ADD, or REMOVE information about {CREATOR_NAME}'s profile, you MUST respond with a JSON object ONLY. This applies to updating simple fields, adding/removing items from lists, or adding/removing items from nested lists (like skills categories), adding/removing lists.
@@ -240,15 +272,14 @@ def ask_ai(question, current_my_info, is_creator_session, session_chat_history):
 ROLE:
 - You are {BOT_NAME}, a friendly and creator's AI Ambassador.
 - Your Creator: {CREATOR_NAME}.
-- Current user status: {'Creator' if is_creator_session else 'Guest'}.
+- Current user status: {'Creator' if is_creator_mode_active else 'Guest'}.
 
 RULES FOR ALL INTERACTIONS:
 1. For creator info questions: Use the provided `my_info` data to answer questions about {CREATOR_NAME}.
 2. Style: Friendly, concise, and informative.
 3. Respond to questions as {BOT_NAME}, the ambassador, not as the creator.
-4. Absolutely DO NOT start your response with any greeting (e.g., "Hello," "Hi," "Hi guest," "Hi creator," "Hey there"). This includes introductions of yourself or stating your name. The initial greeting is handled separately by the system at the start of the chat. Just directly answer the user's question or respond to their input, starting immediately with relevant information.
-5. Absolutely DO NOT directly copy or reprint the 'CREATOR INFORMATION' JSON block or large parts of it in your response. Synthesize the information into natural, concise language.
-6. If the user asks about your own abilities or purpose, explain that you are {BOT_NAME}, the AI Ambassador(not personal assistant)) for {CREATOR_NAME}, and that you can answer questions about.
+4. DO NOT directly copy or reprint the 'CREATOR INFORMATION' JSON block or large parts of it in your response. Synthesize the information into natural, concise language.
+5. If the user asks about your own abilities or purpose, explain that you are {BOT_NAME}, the AI Ambassador(not personal assistant)) for {CREATOR_NAME}, and that you can answer questions about.
 
 {update_instruction}
 
@@ -275,15 +306,78 @@ USER QUESTION: {question}
 
 @app.route('/')
 def index():
-    session.permanent = True
-    is_creator_status = session.get('is_creator_logged_in', False)
+    if not session.get('logged_in_user') and not session.get('is_creator_logged_in'):
+        return redirect(url_for('email_login'))
+    
+    is_creator_logged_in = session.get('is_creator_logged_in', False)
+    is_creator_mode_active = session.get('is_creator_mode_active', False)
+    logged_in_user_email = session.get('logged_in_user', 'Guest')
+    
     return render_template('index.html',
                            bot_name=BOT_NAME,
                            creator_name=CREATOR_NAME,
-                           is_creator=is_creator_status)
+                           is_creator=is_creator_logged_in,
+                           is_creator_mode_active=is_creator_mode_active,
+                           user_email=logged_in_user_email)
+
+# --- USER LOGIN ROUTES ---
+@app.route('/email_login', methods=['GET'])
+def email_login():
+    return render_template('email_login.html')
+
+@app.route('/send_otp', methods=['POST'])
+def send_otp():
+    email = request.form.get('email').strip()
+    if not email:
+        return render_template('email_login.html', error="Please enter a valid email address.")
+    
+    otp = str(random.randint(100000, 999999))
+    session['otp'] = otp
+    session['otp_email'] = email
+    session['otp_expiry'] = datetime.now() + timedelta(minutes=5)
+    
+    if send_email_with_otp(email, otp):
+        return redirect(url_for('verify_otp'))
+    else:
+        return render_template('email_login.html', error="Failed to send OTP. Please check your email configuration or try again.")
+
+@app.route('/verify_otp', methods=['GET'])
+def verify_otp():
+    if 'otp_email' not in session:
+        return redirect(url_for('email_login'))
+    return render_template('verify_otp.html')
+
+@app.route('/login_user', methods=['POST'])
+def login_user():
+    otp_attempt = request.form.get('otp').strip()
+    
+    if 'otp' not in session or 'otp_expiry' not in session or 'otp_email' not in session:
+        return render_template('verify_otp.html', error="Session expired or invalid. Please request a new OTP.", otp_email=session.get('otp_email'))
+
+    if datetime.now() > session['otp_expiry']:
+        session.pop('otp', None)
+        session.pop('otp_expiry', None)
+        return render_template('verify_otp.html', error="OTP has expired. Please request a new one.", otp_email=session.get('otp_email'))
+
+    if otp_attempt == session['otp']:
+        session['logged_in_user'] = session['otp_email']
+        session.permanent = True
+        session.pop('otp', None)
+        session.pop('otp_expiry', None)
+        session.pop('otp_email', None)
+        return redirect(url_for('index'))
+    else:
+        return render_template('verify_otp.html', error="Invalid OTP. Please try again.", otp_email=session.get('otp_email'))
 
 
-# New route for handling creator login
+@app.route('/logout_user')
+def logout_user():
+    session.pop('logged_in_user', None)
+    session.pop('chat_history', None)
+    return redirect(url_for('email_login'))
+
+
+# --- CREATOR LOGIN ROUTES (Modified) ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error_message = None
@@ -291,6 +385,7 @@ def login():
         password_attempt = request.form.get('password')
         if verify_creator(password_attempt):
             session['is_creator_logged_in'] = True
+            session['is_creator_mode_active'] = True # Set creator mode to active by default
             session.permanent = True
             return redirect(url_for('index'))
         else:
@@ -301,13 +396,28 @@ def login():
 @app.route('/logout')
 def logout():
     session.pop('is_creator_logged_in', None)
+    session.pop('is_creator_mode_active', None)
     session.pop('chat_history', None)
+    return redirect(url_for('email_login'))
+
+
+@app.route('/toggle_mode')
+def toggle_mode():
+    if session.get('is_creator_logged_in'):
+        current_mode = session.get('is_creator_mode_active', True)
+        session['is_creator_mode_active'] = not current_mode
     return redirect(url_for('index'))
 
 
+# --- CHAT & DATA ROUTES (Modified to require login) ---
 @app.route('/chat', methods=['POST'])
 def chat():
+    if not session.get('logged_in_user') and not session.get('is_creator_logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+        
     is_creator_logged_in = session.get('is_creator_logged_in', False)
+    is_creator_mode_active = session.get('is_creator_mode_active', False)
+    
     session_chat_history = session.get('chat_history', [])
 
     user_input = request.form['user_input'].strip()
@@ -315,161 +425,166 @@ def chat():
 
     sentiment_analysis_result = analyze_sentiment(user_input)
     log_sentiment(user_input, sentiment_analysis_result)
+    
+    # Check for simple greetings and respond immediately
+    if user_input.lower() in ["hi", "hello", "hey"]:
+        bot_response = f"Hello! How can I help you today?"
+    else:
+      ai_raw_response = ask_ai(user_input, my_info, is_creator_mode_active, session_chat_history)
 
-    ai_raw_response = ask_ai(user_input, my_info, is_creator_logged_in, session_chat_history)
+      try:
+          ai_raw_response_cleaned = ai_raw_response.strip()
+          if ai_raw_response_cleaned.startswith("```json"):
+              ai_raw_response_cleaned = ai_raw_response_cleaned[7:]
+          if ai_raw_response_cleaned.endswith("```"):
+              ai_raw_response_cleaned = ai_raw_response_cleaned[:-3]
+          ai_raw_response_cleaned = ai_raw_response_cleaned.strip()
 
-    try:
-        ai_raw_response_cleaned = ai_raw_response.strip()
-        if ai_raw_response_cleaned.startswith("```json"):
-            ai_raw_response_cleaned = ai_raw_response_cleaned[7:]
-        if ai_raw_response_cleaned.endswith("```"):
-            ai_raw_response_cleaned = ai_raw_response_cleaned[:-3]
-        ai_raw_response_cleaned = ai_raw_response_cleaned.strip()
+          ai_response_json = json.loads(ai_raw_response_cleaned)
 
-        ai_response_json = json.loads(ai_raw_response_cleaned)
+          if is_creator_mode_active and "action" in ai_response_json:
+              action = ai_response_json["action"]
+              field = ai_response_json.get("field")
+              value = ai_response_json.get("value")
+              sub_field = ai_response_json.get("sub_field")
+              item = ai_response_json.get("item")
 
-        if is_creator_logged_in and "action" in ai_response_json:
-            action = ai_response_json["action"]
-            field = ai_response_json.get("field")
-            value = ai_response_json.get("value")
-            sub_field = ai_response_json.get("sub_field")
-            item = ai_response_json.get("item")
+              message_prefix = f"{BOT_NAME}: "
 
-            message_prefix = f"{BOT_NAME}: "
+              if action == "update" and field:
+                  actual_field_key = next((k for k in my_info.keys()
+                                           if k.lower() == field.lower()),
+                                          None)
 
-            if action == "update" and field:
-                actual_field_key = next((k for k in my_info.keys()
-                                         if k.lower() == field.lower()),
-                                        None)
+                  if field.lower() == "creator":
+                      bot_response = message_prefix + "Sorry, the 'Creator' field cannot be changed directly for security reasons."
+                  elif actual_field_key:
+                      old_value = my_info[actual_field_key]
+                      if actual_field_key.lower() == "dob":
+                          try:
+                              datetime.strptime(str(value), "%m/%d/%Y")
+                          except ValueError:
+                              bot_response = message_prefix + f"Invalid date format for DOB. Please use MM/DD/YYYY."
+                          else:
+                              my_info[actual_field_key] = value
+                              if save_info(my_info):
+                                  bot_response = message_prefix + f"Updated '{actual_field_key}' from '{old_value}' to '{value}' successfully."
+                              else:
+                                  bot_response = message_prefix + f"Error updating '{actual_field_key}'."
+                      elif isinstance(my_info[actual_field_key], (list, dict)):
+                          bot_response = message_prefix + f"'{actual_field_key}' is a list or dictionary. Use 'add_item' or 'remove_item' for lists, or specify the sub-field for dictionaries."
+                      else:
+                          my_info[actual_field_key] = value
+                          if save_info(my_info):
+                              bot_response = message_prefix + f"Updated '{actual_field_key}' from '{old_value}' to '{value}' successfully."
+                          else:
+                              bot_response = message_prefix + f"Error updating '{actual_field_key}'."
+                  else:
+                      my_info[field] = value
+                      if save_info(my_info):
+                          bot_response = message_prefix + f"Added new information: '{field}' as '{value}' successfully."
+                      else:
+                          bot_response = message_prefix + f"Error adding new information '{field}'."
 
-                if field.lower() == "creator":
-                    bot_response = message_prefix + "Sorry, the 'Creator' field cannot be changed directly for security reasons."
-                elif actual_field_key:
-                    old_value = my_info[actual_field_key]
-                    if actual_field_key.lower() == "dob":
-                        try:
-                            datetime.strptime(str(value), "%m/%d/%Y")
-                        except ValueError:
-                            bot_response = message_prefix + f"Invalid date format for DOB. Please use MM/DD/YYYY."
-                        else:
-                            my_info[actual_field_key] = value
-                            if save_info(my_info):
-                                bot_response = message_prefix + f"Updated '{actual_field_key}' from '{old_value}' to '{value}' successfully."
-                            else:
-                                bot_response = message_prefix + f"Error updating '{actual_field_key}'."
-                    elif isinstance(my_info[actual_field_key], (list, dict)):
-                        bot_response = message_prefix + f"'{actual_field_key}' is a list or dictionary. Use 'add_item' or 'remove_item' for lists, or specify the sub-field for dictionaries."
-                    else:
-                        my_info[actual_field_key] = value
-                        if save_info(my_info):
-                            bot_response = message_prefix + f"Updated '{actual_field_key}' from '{old_value}' to '{value}' successfully."
-                        else:
-                            bot_response = message_prefix + f"Error updating '{actual_field_key}'."
-                else:
-                    my_info[field] = value
-                    if save_info(my_info):
-                        bot_response = message_prefix + f"Added new information: '{field}' as '{value}' successfully."
-                    else:
-                        bot_response = message_prefix + f"Error adding new information '{field}'."
+              elif action == "add_item" and field and item is not None:
+                  actual_field_key = next((k for k in my_info.keys()
+                                           if k.lower() == field.lower()),
+                                          None)
 
-            elif action == "add_item" and field and item is not None:
-                actual_field_key = next((k for k in my_info.keys()
-                                         if k.lower() == field.lower()),
-                                        None)
+                  if actual_field_key is None and sub_field is None:
+                      my_info[field] = [item]
+                      if save_info(my_info):
+                          bot_response = message_prefix + f"Created new section '{field}' and added '{item}' successfully."
+                      else:
+                          bot_response = message_prefix + f"Error creating new section or adding item."
+                  elif actual_field_key:
+                      if sub_field:
+                          if isinstance(my_info[actual_field_key], dict) and sub_field in my_info[actual_field_key]:
+                              if isinstance(my_info[actual_field_key][sub_field], list):
+                                  if item not in my_info[actual_field_key][sub_field]:
+                                      my_info[actual_field_key][sub_field].append(item)
+                                      if save_info(my_info):
+                                          bot_response = message_prefix + f"'{item}' added to '{sub_field}' under '{actual_field_key}' successfully."
+                                      else:
+                                          bot_response = message_prefix + f"Error adding '{item}' to '{sub_field}'."
+                                  else:
+                                      bot_response = message_prefix + f"'{item}' is already in '{sub_field}' under '{actual_field_key}'."
+                              else:
+                                  bot_response = message_prefix + f"'{sub_field}' under '{actual_field_key}' is not a list. Cannot add item."
+                          else:
+                              bot_response = message_prefix + f"'{actual_field_key}' is not a dictionary or '{sub_field}' does not exist under it. Cannot add nested item."
+                      else:
+                          if isinstance(my_info[actual_field_key], list):
+                              if item not in my_info[actual_field_key]:
+                                  my_info[actual_field_key].append(item)
+                                  if save_info(my_info):
+                                      bot_response = message_prefix + f"'{item}' added to '{actual_field_key}' successfully."
+                                  else:
+                                      bot_response = message_prefix + f"Error adding '{item}' to '{actual_field_key}'."
+                              else:
+                                  bot_response = message_prefix + f"'{item}' is already in '{actual_field_key}'."
+                          else:
+                              bot_response = message_prefix + f"Cannot add '{item}'. '{actual_field_key}' is not a list. Try 'update my info: {actual_field_key} to [new value]' to change its value or consider removing it first if you want to convert it to a list."
+                  else:
+                      bot_response = message_prefix + f"Could not find or add to section '{field}'. Please specify correctly."
 
-                if actual_field_key is None and sub_field is None:
-                    my_info[field] = [item]
-                    if save_info(my_info):
-                        bot_response = message_prefix + f"Created new section '{field}' and added '{item}' successfully."
-                    else:
-                        bot_response = message_prefix + f"Error creating new section or adding item."
-                elif actual_field_key:
-                    if sub_field:
-                        if isinstance(my_info[actual_field_key], dict) and sub_field in my_info[actual_field_key]:
-                            if isinstance(my_info[actual_field_key][sub_field], list):
-                                if item not in my_info[actual_field_key][sub_field]:
-                                    my_info[actual_field_key][sub_field].append(item)
-                                    if save_info(my_info):
-                                        bot_response = message_prefix + f"'{item}' added to '{sub_field}' under '{actual_field_key}' successfully."
-                                    else:
-                                        bot_response = message_prefix + f"Error adding '{item}' to '{sub_field}'."
-                                else:
-                                    bot_response = message_prefix + f"'{item}' is already in '{sub_field}' under '{actual_field_key}'."
-                            else:
-                                bot_response = message_prefix + f"'{sub_field}' under '{actual_field_key}' is not a list. Cannot add item."
-                        else:
-                            bot_response = message_prefix + f"'{actual_field_key}' is not a dictionary or '{sub_field}' does not exist under it. Cannot add nested item."
-                    else:
-                        if isinstance(my_info[actual_field_key], list):
-                            if item not in my_info[actual_field_key]:
-                                my_info[actual_field_key].append(item)
-                                if save_info(my_info):
-                                    bot_response = message_prefix + f"'{item}' added to '{actual_field_key}' successfully."
-                                else:
-                                    bot_response = message_prefix + f"Error adding '{item}' to '{actual_field_key}'."
-                            else:
-                                bot_response = message_prefix + f"'{item}' is already in '{actual_field_key}'."
-                        else:
-                            bot_response = message_prefix + f"Cannot add '{item}'. '{actual_field_key}' is not a list. Try 'update my info: {actual_field_key} to [new value]' to change its value or consider removing it first if you want to convert it to a list."
-                else:
-                    bot_response = message_prefix + f"Could not find or add to section '{field}'. Please specify correctly."
+              elif action == "remove_item" and field and item is not None:
+                  actual_field_key = next((k for k in my_info.keys()
+                                           if k.lower() == field.lower()),
+                                          None)
 
-            elif action == "remove_item" and field and item is not None:
-                actual_field_key = next((k for k in my_info.keys()
-                                         if k.lower() == field.lower()),
-                                        None)
+                  if actual_field_key is None:
+                      bot_response = message_prefix + f"Section '{field}' does not exist. Nothing to remove."
+                  elif sub_field:
+                      if isinstance(my_info[actual_field_key], dict) and sub_field in my_info[actual_field_key]:
+                          if isinstance(my_info[actual_field_key][sub_field], list):
+                              if item in my_info[actual_field_key][sub_field]:
+                                  my_info[actual_field_key][sub_field].remove(item)
+                                  if save_info(my_info):
+                                      bot_response = message_prefix + f"Removed '{item}' from '{sub_field}' under '{actual_field_key}' successfully."
+                                  else:
+                                      bot_response = message_prefix + f"Error removing '{item}' from '{sub_field}'."
+                              else:
+                                  bot_response = message_prefix + f"'{item}' is not found in '{sub_field}' under '{actual_field_key}'."
+                          else:
+                              bot_response = message_prefix + f"'{sub_field}' under '{actual_field_key}' is not a list. Cannot remove item."
+                      else:
+                          bot_response = message_prefix + f"'{actual_field_key}' is not a dictionary or '{sub_field}' does not exist under it. Cannot remove nested item."
+                  else:
+                      if isinstance(my_info[actual_field_key], list):
+                          if item in my_info[actual_field_key]:
+                              my_info[actual_field_key].remove(item)
+                              if save_info(my_info):
+                                  bot_response = message_prefix + f"Removed '{item}' from '{actual_field_key}' successfully."
+                              else:
+                                  bot_response = message_prefix + f"Error removing '{item}' from '{actual_field_key}'."
+                          else:
+                              bot_response = message_prefix + f"'{item}' is not found in '{actual_field_key}'."
+                      else:
+                          bot_response = message_prefix + f"Cannot remove '{item}'. '{actual_field_key}' is not a list."
+              else:
+                  bot_response = message_prefix + f"Received an unclear or incomplete update instruction from AI (JSON action not recognized). Raw: {ai_raw_response_cleaned}"
+          else:
+              bot_response = ai_raw_response
+      except json.JSONDecodeError as e:
+          print(f"DEBUG: JSONDecodeError: AI response was not valid JSON: '{ai_raw_response_cleaned}' Error: {e}")
+          bot_response = ai_raw_response
+      except Exception as e:
+          print(f"DEBUG: General Error processing AI response: {e}, Raw response: '{ai_raw_response}'")
+          bot_response = f"⚠️ An internal error occurred while processing AI response: {str(e)}. Please try again."
 
-                if actual_field_key is None:
-                    bot_response = message_prefix + f"Section '{field}' does not exist. Nothing to remove."
-                elif sub_field:
-                    if isinstance(my_info[actual_field_key], dict) and sub_field in my_info[actual_field_key]:
-                        if isinstance(my_info[actual_field_key][sub_field], list):
-                            if item in my_info[actual_field_key][sub_field]:
-                                my_info[actual_field_key][sub_field].remove(item)
-                                if save_info(my_info):
-                                    bot_response = message_prefix + f"Removed '{item}' from '{sub_field}' under '{actual_field_key}' successfully."
-                                else:
-                                    bot_response = message_prefix + f"Error removing '{item}' from '{sub_field}'."
-                            else:
-                                bot_response = message_prefix + f"'{item}' is not found in '{sub_field}' under '{actual_field_key}'."
-                        else:
-                            bot_response = message_prefix + f"'{sub_field}' under '{actual_field_key}' is not a list. Cannot remove item."
-                    else:
-                        bot_response = message_prefix + f"'{actual_field_key}' is not a dictionary or '{sub_field}' does not exist under it. Cannot remove nested item."
-                else:
-                    if isinstance(my_info[actual_field_key], list):
-                        if item in my_info[actual_field_key]:
-                            my_info[actual_field_key].remove(item)
-                            if save_info(my_info):
-                                bot_response = message_prefix + f"Removed '{item}' from '{actual_field_key}' successfully."
-                            else:
-                                bot_response = message_prefix + f"Error removing '{item}' from '{actual_field_key}'."
-                        else:
-                            bot_response = message_prefix + f"'{item}' is not found in '{actual_field_key}'."
-                    else:
-                        bot_response = message_prefix + f"Cannot remove '{item}'. '{actual_field_key}' is not a list."
-            else:
-                bot_response = message_prefix + f"Received an unclear or incomplete update instruction from AI (JSON action not recognized). Raw: {ai_raw_response_cleaned}"
-        else:
-            bot_response = ai_raw_response
-    except json.JSONDecodeError as e:
-        print(f"DEBUG: JSONDecodeError: AI response was not valid JSON: '{ai_raw_response_cleaned}' Error: {e}")
-        bot_response = ai_raw_response
-    except Exception as e:
-        print(f"DEBUG: General Error processing AI response: {e}, Raw response: '{ai_raw_response}'")
-        bot_response = f"⚠️ An internal error occurred while processing AI response: {str(e)}. Please try again."
 
     session_chat_history.append({"role": "user", "parts": [user_input]})
     session_chat_history.append({"role": "model", "parts": [bot_response]})
     session['chat_history'] = session_chat_history[-6:]
 
-    return jsonify({'response': bot_response, 'is_creator': is_creator_logged_in})
+    return jsonify({'response': bot_response, 'is_creator': is_creator_mode_active})
 
 
 @app.route('/chat_status', methods=['GET'])
 def chat_status():
-    is_creator_logged_in = session.get('is_creator_logged_in', False)
-    return jsonify({'is_creator': is_creator_logged_in})
+    is_creator_mode_active = session.get('is_creator_mode_active', False)
+    return jsonify({'is_creator': is_creator_mode_active})
 
 
 @app.route('/get_chat_history', methods=['GET'])
