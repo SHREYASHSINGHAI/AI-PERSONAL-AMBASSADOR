@@ -36,7 +36,7 @@
             border-top-right-radius: 8px;
             font-size: 1.2em;
             transition: background-color 0.3s ease; /* Smooth transition for color change */
-            position: relative; /* Needed for positioning the status button */
+            position: relative;
         }
         .chat-header-status {
             position: absolute;
@@ -51,6 +51,11 @@
             padding: 5px 10px;
             border-radius: 5px;
             font-size: 0.8em;
+            margin-left: 5px;
+        }
+        .chat-header-status p {
+            display: inline;
+            margin: 0;
         }
         .chat-messages {
             flex-grow: 1;
@@ -119,7 +124,7 @@
             {{ bot_name }}
             <div class="chat-header-status">
                 {% if is_creator %}
-                    <p style="display:inline; margin-right: 10px;">Creator Mode</p>
+                    <p>Creator Mode</p>
                     <a href="{{ url_for('review_sentiment') }}" class="sentiment-btn">Review Sentiment</a>
                     <a href="{{ url_for('logout') }}">Logout</a>
                 {% else %}
@@ -150,7 +155,7 @@
         const userInput = document.getElementById('user-input');
         const chatMessages = document.getElementById('chat-messages');
         const chatHeader = document.getElementById('chat-header');
-        
+
         async function fetchInitialChatHistory() {
             try {
                 const response = await fetch('/get_chat_history');
@@ -164,7 +169,7 @@
                 console.error('Error fetching initial chat history:', error);
             }
         }
-        
+
         document.addEventListener('DOMContentLoaded', fetchInitialChatHistory);
 
         chatForm.addEventListener('submit', async (event) => {
@@ -194,11 +199,10 @@
 
                 appendMessage(data.response, 'bot');
 
-                // Update header color based on creator status
                 if (data.is_creator) {
-                    chatHeader.style.backgroundColor = "#dc3545"; // Red for creator
+                    chatHeader.style.backgroundColor = "#dc3545";
                 } else {
-                    chatHeader.style.backgroundColor = "#007bff"; // Blue for guest
+                    chatHeader.style.backgroundColor = "#007bff";
                 }
 
             } catch (error) {
@@ -229,13 +233,11 @@
             return messageDiv;
         }
 
-        // Set initial header color on page load
         function setInitialHeaderColor() {
-            // Check if creator status is passed from the server and is true
             if (isCreatorInitial === 'True') {
-                chatHeader.style.backgroundColor = "#dc3545"; // Red
+                chatHeader.style.backgroundColor = "#dc3545";
             } else {
-                chatHeader.style.backgroundColor = "#007bff"; // Blue
+                chatHeader.style.backgroundColor = "#007bff";
             }
         }
 
