@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment Review</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #dc3545;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            text-decoration: none;
+            color: #007bff;
+            font-weight: 500;
+        }
+        .day-summary {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+        }
+        .day-summary h2 {
+            margin-top: 0;
+            color: #495057;
+            border-bottom: 2px solid #dc3545;
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sentiment-counts span {
+            margin-left: 15px;
+            font-weight: normal;
+        }
+        .sentiment-counts .positive { color: #28a745; }
+        .sentiment-counts .negative { color: #dc3545; }
+        .sentiment-counts .neutral { color: #ffc107; }
+        .interactions-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 15px;
+        }
+        .interaction-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .interaction-item:last-child {
+            border-bottom: none;
+        }
+        .interaction-item .timestamp {
+            font-size: 0.8em;
+            color: #888;
+        }
+        .interaction-item .sentiment {
+            font-weight: bold;
+        }
+        .sentiment-positive { color: #28a745; }
+        .sentiment-negative { color: #dc3545; }
+        .sentiment-neutral { color: #ffc107; }
+        .interaction-item p {
+            margin: 5px 0 0 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{{ url_for('index') }}" class="back-link">&larr; Back to Chat</a>
+        <h1>Sentiment History Review</h1>
+
+        {% if not sentiment_data %}
+            <p style="text-align: center; color: #6c757d;">No sentiment data available yet.</p>
+        {% endif %}
+
+        {% for day in sentiment_data %}
+            <div class="day-summary">
+                <h2>
+                    {{ day.date }}
+                    <div class="sentiment-counts">
+                        <span>Total: {{ day.total_interactions }}</span>
+                        <span class="positive">Positive: {{ day.positive }}</span>
+                        <span class="negative">Negative: {{ day.negative }}</span>
+                        <span class="neutral">Neutral: {{ day.neutral }}</span>
+                    </div>
+                </h2>
+                <ul class="interactions-list">
+                    {% for interaction in day.interactions_detail %}
+                        <li class="interaction-item">
+                            <p class="timestamp">{{ interaction.timestamp }}</p>
+                            <p><strong>User Input:</strong> "{{ interaction.user_input }}"</p>
+                            <p><strong>Sentiment:</strong> <span class="sentiment sentiment-{{ interaction.sentiment }}">{{ interaction.sentiment | capitalize }}</span> (Polarity: {{ "%.2f"|format(interaction.polarity) }})</p>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
