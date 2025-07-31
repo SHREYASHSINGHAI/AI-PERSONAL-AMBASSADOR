@@ -7,7 +7,7 @@ from textblob import TextBlob  #for sentiment analysis
 from collections import defaultdict  #to count the sentiments
 
 from datetime import timedelta, datetime, date  # Added date import
-from flask import Flask, request, render_template, session, redirect, url_for
+from flask import Flask, request, render_template, session, redirect, url_for, jsonify
 from dotenv import load_dotenv  # For loading environment variables
 
 # Load environment variables from .env file (for local development)
@@ -350,7 +350,7 @@ def chat():
     user_input = request.form['user_input'].strip()
     bot_response = ""
 
-    #SENTIMENT ANALYSIS AND LOGGING   
+    #SENTIMENT ANALYSIS AND LOGGING
     sentiment_analysis_result = analyze_sentiment(user_input)
     log_sentiment(user_input, sentiment_analysis_result)
 
@@ -576,7 +576,21 @@ def chat():
     session['chat_history'] = session_chat_history[-6:]  # Keep last 3 user and 3 model messages
 
     # Return the bot's response and creator status as JSON to the web page
-    return {'response': bot_response, 'is_creator': is_creator_logged_in}
+    return jsonify({'response': bot_response, 'is_creator': is_creator_logged_in})
+
+
+# New endpoint to provide initial creator status to the frontend
+@app.route('/chat_status', methods=['GET'])
+def chat_status():
+    is_creator_logged_in = session.get('is_creator_logged_in', False)
+    return jsonify({'is_creator': is_creator_logged_in})
+
+
+@app.route('/get_chat_history', methods=['GET'])
+def get_chat_history():
+    chat_history = session.get('chat_history', [])
+    return jsonify({'history': chat_history})
+
 
 # --- SENTIMENT ANALYSIS FUNCTIONS ---
 
@@ -584,14 +598,14 @@ def analyze_sentiment(text):
     """Analyzes the sentiment of the given text using TextBlob."""
     analysis = TextBlob(text)
     polarity = analysis.sentiment.polarity
-    
+
     if polarity > 0.1: # A small threshold to consider as positive
         sentiment_label = "positive"
     elif polarity < -0.1: # A small threshold to consider as negative
         sentiment_label = "negative"
     else:
         sentiment_label = "neutral"
-    
+
     return {
         "text": text,
         "polarity": polarity,
@@ -601,20 +615,20 @@ def analyze_sentiment(text):
 def log_sentiment(user_input, sentiment_data):
     """Logs the user input and its sentiment data to the history file."""
     global sentiment_history # Access the global sentiment_history dictionary
-    
+
     # Use today's date as a key for daily logging
     today_str = date.today().strftime("%Y-%m-%d")
-    
+
     if today_str not in sentiment_history:
         sentiment_history[today_str] = {
             "total_interactions": 0,
             "sentiment_counts": {"positive": 0, "negative": 0, "neutral": 0},
             "interactions": [] # To store details of each interaction
         }
-    
+
     sentiment_history[today_str]["total_interactions"] += 1
     sentiment_history[today_str]["sentiment_counts"][sentiment_data["sentiment_label"]] += 1
-    
+
     # Store the full interaction for review, including timestamp
     sentiment_history[today_str]["interactions"].append({
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -622,15 +636,10 @@ def log_sentiment(user_input, sentiment_data):
         "sentiment": sentiment_data["sentiment_label"],
         "polarity": sentiment_data["polarity"]
     })
-    
+
     save_sentiment_history(sentiment_history)
 
-# New endpoint to provide initial creator status to the frontend
-@app.route('/chat_status', methods=['GET'])
-def chat_status():
-    is_creator_logged_in = session.get('is_creator_logged_in', False)
-    return {'is_creator': is_creator_logged_in}
-    
+
 @app.route('/review_sentiment')
 def review_sentiment():
     if not session.get('is_creator_logged_in'):
@@ -649,7 +658,6 @@ def review_sentiment():
     # Sort by date, newest first
     sentiment_display_data.sort(key=lambda x: x['date'], reverse=True)
     return render_template('review_sentiment.html', sentiment_data=sentiment_display_data)
-
 
 
 # --- This part ensures the Flask app runs when Replit starts it ---
