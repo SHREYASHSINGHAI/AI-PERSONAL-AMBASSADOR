@@ -28,7 +28,6 @@
             overflow: hidden;
         }
         .chat-header {
-            background-color: #007bff; /* Default blue for guest mode */
             color: white;
             padding: 15px;
             text-align: center;
@@ -43,6 +42,8 @@
             top: 10px;
             right: 15px;
             font-size: 0.9em;
+            display: flex;
+            gap: 10px;
         }
         .chat-header-status a {
             color: white;
@@ -51,7 +52,6 @@
             padding: 5px 10px;
             border-radius: 5px;
             font-size: 0.8em;
-            margin-left: 5px;
         }
         .chat-header-status p {
             display: inline;
@@ -124,11 +124,18 @@
             {{ bot_name }}
             <div class="chat-header-status">
                 {% if is_creator %}
-                    <p>Creator Mode</p>
+                    <a href="{{ url_for('toggle_mode') }}" id="toggle-mode-btn">
+                        {% if is_creator_mode_active %}
+                            Switch to User Mode
+                        {% else %}
+                            Switch to Creator Mode
+                        {% endif %}
+                    </a>
                     <a href="{{ url_for('review_sentiment') }}" class="sentiment-btn">Review Sentiment</a>
-                    <a href="{{ url_for('logout') }}">Logout</a>
+                    <a href="{{ url_for('logout') }}">Creator Logout</a>
                 {% else %}
-                    <a href="{{ url_for('login') }}">Creator Login</a>
+                    <p>User: {{ user_email }}</p>
+                    <a href="{{ url_for('logout_user') }}">Logout</a>
                 {% endif %}
             </div>
         </div>
@@ -150,12 +157,13 @@
         const botName = "{{ bot_name }}";
         const creatorName = "{{ creator_name }}";
         const isCreatorInitial = "{{ is_creator }}";
+        const isCreatorModeActive = "{{ is_creator_mode_active }}";
 
         const chatForm = document.getElementById('chat-form');
         const userInput = document.getElementById('user-input');
         const chatMessages = document.getElementById('chat-messages');
         const chatHeader = document.getElementById('chat-header');
-
+        
         async function fetchInitialChatHistory() {
             try {
                 const response = await fetch('/get_chat_history');
@@ -192,6 +200,12 @@
                         'user_input': message
                     })
                 });
+                
+                if (response.status === 401) {
+                    // Handle unauthorized access
+                    window.location.href = "{{ url_for('email_login') }}";
+                    return;
+                }
 
                 const data = await response.json();
 
@@ -235,7 +249,11 @@
 
         function setInitialHeaderColor() {
             if (isCreatorInitial === 'True') {
-                chatHeader.style.backgroundColor = "#dc3545";
+                if (isCreatorModeActive === 'True') {
+                    chatHeader.style.backgroundColor = "#dc3545";
+                } else {
+                    chatHeader.style.backgroundColor = "#007bff";
+                }
             } else {
                 chatHeader.style.backgroundColor = "#007bff";
             }
