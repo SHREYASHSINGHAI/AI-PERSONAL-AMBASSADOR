@@ -4,17 +4,21 @@ from transformers import pipeline
 sentiment_analyzer = pipeline("sentiment-analysis", model="finiteautomata/bertweet-base-sentiment-analysis")
 
 def perform_sentiment_analysis(text):
+    """
+    Performs sentiment analysis on the given text using a pre-trained model.
+    """
     if not text.strip():
         return {"label": "neutral", "score": 1.0}
     
     try:
         result = sentiment_analyzer(text)[0]
         
+        # Normalize the label to be consistent
         if result['label'] == 'POS':
             result['label'] = 'positive'
         elif result['label'] == 'NEG':
             result['label'] = 'negative'
-        elif result['label'] == 'NEU':  # The fix is on this line
+        elif result['label'] == 'NEU':  # Corrected to use '==' for comparison
             result['label'] = 'neutral'
             
         return result
@@ -23,6 +27,7 @@ def perform_sentiment_analysis(text):
         return {"label": "neutral", "score": 0.0}
 
 if __name__ == '__main__':
+    # Example usage
     text1 = "I love this new feature, it's amazing!"
     text2 = "I'm not sure if this is what I was expecting."
     text3 = "This is a terrible experience."
