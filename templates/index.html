@@ -8,9 +8,9 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #dc3545; /* A primary color like red for actions */
-            --secondary-color: #f8f9fa; /* A light background color */
-            --dark-color: #343a40; /* Dark text/background */
+            --primary-color: #dc3545;
+            --secondary-color: #f8f9fa;
+            --dark-color: #343a40;
             --light-text: #fff;
             --menu-width: 250px;
         }
@@ -22,7 +22,7 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
-            overflow: hidden;
+            overflow: hidden; /* This prevents the entire page from scrolling */
             color: var(--dark-color);
         }
 
@@ -35,8 +35,6 @@
             align-items: center;
             justify-content: space-between;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            position: sticky;
-            top: 0;
             z-index: 1000;
         }
         header .header-left {
@@ -71,7 +69,7 @@
             left: calc(-1 * var(--menu-width));
             transition: left 0.3s ease;
             z-index: 1001;
-            padding-top: 60px; /* Space for the header */
+            padding-top: 60px;
             display: flex;
             flex-direction: column;
             box-shadow: 2px 0 5px rgba(0,0,0,0.2);
@@ -114,7 +112,7 @@
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            flex-grow: 1;
+            flex-grow: 1; /* This makes the chat-container fill the available vertical space */
         }
 
         #chat-window {
@@ -122,8 +120,8 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             padding: 20px;
-            flex-grow: 1;
-            overflow-y: scroll; /* Changed to scroll to always show the scrollbar */
+            flex-grow: 1; /* This makes the chat-window fill the remaining space */
+            overflow-y: scroll; /* Forces a scrollbar when content overflows */
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -169,8 +167,6 @@
         .chat-input {
             display: flex;
             margin-top: 20px;
-            position: sticky;
-            bottom: 20px;
         }
         #user-input {
             flex-grow: 1;
@@ -295,7 +291,6 @@
         
         function scrollToBottom() {
             const chatWindow = document.getElementById('chat-window');
-            // Using a slight delay to ensure new content is rendered
             setTimeout(() => {
                 chatWindow.scrollTop = chatWindow.scrollHeight;
             }, 50); 
