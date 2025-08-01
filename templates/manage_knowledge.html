@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Knowledge</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #dc3545;
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        h2 {
+            margin-top: 30px;
+            color: #555;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 5px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .form-group textarea {
+            min-height: 80px;
+        }
+        .submit-btn {
+            background-color: #dc3545;
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .submit-btn:hover {
+            background-color: #c82333;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            text-decoration: none;
+            color: #fff;
+            background-color: #dc3545;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .back-button:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{{ url_for('index') }}" class="back-button">Back to Chat</a>
+        <h1>Manage Knowledge Base</h1>
+        {% if message %}
+            <div class="message success">{{ message }}</div>
+        {% endif %}
+        <form method="post">
+            <div class="form-group">
+                <label for="Creator">Creator Name</label>
+                <input type="text" id="Creator" name="Creator" value="{{ my_info.Creator }}">
+            </div>
+            <div class="form-group">
+                <label for="Name">Bot Name</label>
+                <input type="text" id="Name" name="Name" value="{{ my_info.Name }}">
+            </div>
+            <div class="form-group">
+                <label for="DOB">Date of Birth</label>
+                <input type="text" id="DOB" name="DOB" value="{{ my_info.DOB }}">
+            </div>
+            <div class="form-group">
+                <label for="Occupation">Occupation</label>
+                <input type="text" id="Occupation" name="Occupation" value="{{ my_info.Occupation }}">
+            </div>
+            <div class="form-group">
+                <label for="Hobbies">Hobbies (comma-separated)</label>
+                <input type="text" id="Hobbies" name="Hobbies" value="{{ hobbies }}">
+            </div>
+
+            <h2>Skills (comma-separated)</h2>
+            <div class="form-group">
+                <label for="skills_coding_language">Coding Languages</label>
+                <input type="text" id="skills_coding_language" name="skills_coding_language" value="{{ skills.coding_language }}">
+            </div>
+            <div class="form-group">
+                <label for="skills_concepts">Concepts</label>
+                <input type="text" id="skills_concepts" name="skills_concepts" value="{{ skills.Concepts }}">
+            </div>
+            <div class="form-group">
+                <label for="skills_libraries">Libraries</label>
+                <input type="text" id="skills_libraries" name="skills_libraries" value="{{ skills.Libraries }}">
+            </div>
+            <div class="form-group">
+                <label for="skills_languages">Spoken Languages</label>
+                <input type="text" id="skills_languages" name="skills_languages" value="{{ skills.languages }}">
+            </div>
+            
+            <button type="submit" class="submit-btn">Save Changes</button>
+        </form>
+    </div>
+</body>
+</html>
