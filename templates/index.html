@@ -3,263 +3,319 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ bot_name }}'s Assistant</title>
+    <title>{{ bot_name }}'s Ambassador</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            color: #333;
+        :root {
+            --primary-color: #dc3545; /* A primary color like red for actions */
+            --secondary-color: #f8f9fa; /* A light background color */
+            --dark-color: #343a40; /* Dark text/background */
+            --light-text: #fff;
+            --menu-width: 250px;
         }
-        .chat-container {
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 600px;
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            background-color: var(--secondary-color);
             display: flex;
             flex-direction: column;
-            height: 80vh;
+            height: 100vh;
             overflow: hidden;
+            color: var(--dark-color);
         }
-        .chat-header {
-            color: white;
-            padding: 15px;
-            text-align: center;
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
-            font-size: 1.2em;
-            transition: background-color 0.3s ease;
-            position: relative;
-        }
-        .chat-header-status {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            font-size: 0.9em;
+
+        /* --- Header --- */
+        header {
+            background-color: var(--primary-color);
+            color: var(--light-text);
+            padding: 10px 20px;
             display: flex;
-            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
-        .chat-header-status a {
-            color: white;
+        header .header-left {
+            display: flex;
+            align-items: center;
+        }
+        #menu-toggle {
+            background: none;
+            border: none;
+            color: var(--light-text);
+            font-size: 24px;
+            cursor: pointer;
+            margin-right: 15px;
+        }
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .header-user {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* --- Sidebar Menu --- */
+        #sidebar {
+            width: var(--menu-width);
+            height: 100%;
+            background-color: var(--dark-color);
+            color: var(--light-text);
+            position: fixed;
+            top: 0;
+            left: calc(-1 * var(--menu-width));
+            transition: left 0.3s ease;
+            z-index: 1001;
+            padding-top: 60px; /* Space for the header */
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+        }
+        #sidebar.active {
+            left: 0;
+        }
+        #sidebar a {
+            padding: 15px 20px;
             text-decoration: none;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.8em;
+            color: var(--light-text);
+            display: block;
+            border-bottom: 1px solid #495057;
+            transition: background-color 0.2s ease;
         }
-        .chat-header-status p {
-            display: inline;
-            margin: 0;
+        #sidebar a:hover {
+            background-color: var(--primary-color);
         }
-        .chat-messages {
+        #sidebar a i {
+            margin-right: 10px;
+        }
+
+        /* --- Main Content --- */
+        #main-content {
             flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
+            margin-left: 0;
+        }
+        body.sidebar-active #main-content {
+            margin-left: var(--menu-width);
+        }
+        
+        .chat-container {
+            max-width: 800px;
+            width: 100%;
+            margin: 20px auto;
+            padding: 0 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        #chat-window {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
             padding: 20px;
+            flex-grow: 1;
             overflow-y: auto;
-            background-color: #e9ecef;
-            border-bottom: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            min-height: 400px;
         }
         .message {
-            margin-bottom: 15px;
-            display: flex;
-            flex-direction: column;
-        }
-        .message.user {
-            align-items: flex-end;
-        }
-        .message.bot {
-            align-items: flex-start;
-        }
-        .message-bubble {
+            max-width: 80%;
             padding: 10px 15px;
             border-radius: 20px;
-            max-width: 70%;
+            line-height: 1.5;
             word-wrap: break-word;
         }
-        .message.user .message-bubble {
-            background-color: #007bff;
-            color: white;
+        .user-message {
+            align-self: flex-end;
+            background-color: #e0f7fa;
+            color: #004d40;
             border-bottom-right-radius: 5px;
         }
-        .message.bot .message-bubble {
-            background-color: #f0f0f0;
+        .bot-message {
+            align-self: flex-start;
+            background-color: #f1f0f0;
             color: #333;
             border-bottom-left-radius: 5px;
         }
-        .chat-input-form {
+
+        .chat-input {
             display: flex;
-            padding: 15px;
-            border-top: 1px solid #eee;
+            margin-top: 20px;
+            position: sticky;
+            bottom: 20px;
         }
-        .chat-input-form input[type="text"] {
+        #user-input {
             flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 20px;
-            margin-right: 10px;
-            font-size: 1em;
+            padding: 12px 20px;
+            border: 1px solid #ced4da;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
         }
-        .chat-input-form button {
-            background-color: #28a745;
+        #user-input:focus {
+            border-color: var(--primary-color);
+        }
+        #send-button {
+            background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
+            padding: 12px 20px;
+            border-radius: 25px;
+            margin-left: 10px;
             cursor: pointer;
-            font-size: 1em;
+            font-size: 16px;
+            transition: background-color 0.3s;
         }
-        .chat-input-form button:hover {
-            background-color: #218838;
+        #send-button:hover {
+            background-color: #c82333;
+        }
+        .mode-text {
+            font-size: 0.9em;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        /* Overlay to close menu on click outside */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            z-index: 1000;
+        }
+        .overlay.active {
+            visibility: visible;
+            opacity: 1;
         }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header" id="chat-header">
-            {{ bot_name }}
-            <div class="chat-header-status">
-                {% if is_creator %}
-                    <a href="{{ url_for('toggle_mode') }}" id="toggle-mode-btn">
-                        {% if is_creator_mode_active %}
-                            Switch to User Mode
-                        {% else %}
-                            Switch to Creator Mode
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_for('review_sentiment') }}" class="sentiment-btn">Review Sentiment</a>
-                    <a href="{{ url_for('logout') }}">Creator Logout</a>
-                {% else %}
-                    <p>User: {{ user_email }}</p>
-                    <a href="{{ url_for('logout_user') }}">Logout</a>
-                {% endif %}
-            </div>
+
+    <div class="overlay" onclick="toggleMenu()"></div>
+
+    <nav id="sidebar">
+        <div style="padding: 20px; text-align: center;">
+            <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: var(--light-text);">Menu</p>
         </div>
-        <div class="chat-messages" id="chat-messages">
-            <div class="message bot">
-                <div class="message-bubble">
-                    👋 Hello! I'm {{ bot_name }}, {{ creator_name }}'s assistant. How can I help you today?
-                </div>
-            </div>
-        </div>
-
-        <form class="chat-input-form" id="chat-form">
-            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
-            <button type="submit">Send</button>
-        </form>
-    </div>
-
-    <script>
-        const botName = "{{ bot_name }}";
-        const creatorName = "{{ creator_name }}";
-        const isCreatorInitial = "{{ is_creator }}";
-        const isCreatorModeActive = "{{ is_creator_mode_active }}";
-
-        const chatForm = document.getElementById('chat-form');
-        const userInput = document.getElementById('user-input');
-        const chatMessages = document.getElementById('chat-messages');
-        const chatHeader = document.getElementById('chat-header');
         
-        async function fetchInitialChatHistory() {
-            try {
-                const response = await fetch('/get_chat_history');
-                const data = await response.json();
-                if (data.history) {
-                    data.history.forEach(entry => {
-                        appendMessage(entry.parts[0], entry.role);
+        {% if is_creator %}
+        <a href="{{ url_for('toggle_mode') }}">
+            <i class="fas fa-user-shield"></i>
+            {% if is_creator_mode_active %}
+                Disable Creator Mode
+            {% else %}
+                Enable Creator Mode
+            {% endif %}
+        </a>
+        <a href="{{ url_for('review_sentiment') }}">
+            <i class="fas fa-chart-line"></i>
+            Sentiment Review
+        </a>
+        <a href="{{ url_for('logout') }}">
+            <i class="fas fa-sign-out-alt"></i>
+            Creator Logout
+        </a>
+        {% else %}
+        <a href="{{ url_for('logout_user') }}">
+            <i class="fas fa-sign-out-alt"></i>
+            Logout
+        </a>
+        {% endif %}
+    </nav>
+
+    <div id="main-content">
+        <header>
+            <div class="header-left">
+                <button id="menu-toggle" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
+                <div class="header-title">{{ bot_name }}'s Ambassador</div>
+            </div>
+            <div class="header-user">{{ user_email }}</div>
+        </header>
+
+        <div class="chat-container">
+            <div id="chat-window">
+                </div>
+            <div class="chat-input">
+                <input type="text" id="user-input" placeholder="Type your message...">
+                <button id="send-button"><i class="fas fa-paper-plane"></i></button>
+            </div>
+            {% if is_creator %}
+                <div class="mode-text">
+                    Creator Mode is currently: 
+                    <span style="color: {{ 'green' if is_creator_mode_active else 'red' }}; font-weight: bold;">
+                        {{ 'Enabled' if is_creator_mode_active else 'Disabled' }}
+                    </span>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('main-content').classList.toggle('sidebar-active');
+            document.querySelector('.overlay').classList.toggle('active');
+        }
+
+        $(document).ready(function() {
+            function loadChatHistory() {
+                $.getJSON("{{ url_for('get_chat_history') }}", function(data) {
+                    $('#chat-window').empty();
+                    data.history.forEach(function(message) {
+                        const messageClass = (message.role === 'user') ? 'user-message' : 'bot-message';
+                        const newMessage = $('<div>').addClass('message').addClass(messageClass).text(message.parts[0]);
+                        $('#chat-window').append(newMessage);
                     });
-                }
-            } catch (error) {
-                console.error('Error fetching initial chat history:', error);
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', fetchInitialChatHistory);
-
-        chatForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const message = userInput.value.trim();
-            if (message === '') return;
-
-            appendMessage(message, 'user');
-            userInput.value = '';
-
-            const loadingMessage = appendMessage('...', 'bot', true);
-
-            try {
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: new URLSearchParams({
-                        'user_input': message
-                    })
+                    $('#chat-window').scrollTop($('#chat-window')[0].scrollHeight);
                 });
-                
-                if (response.status === 401) {
-                    // Handle unauthorized access
-                    window.location.href = "{{ url_for('email_login') }}";
-                    return;
-                }
-
-                const data = await response.json();
-
-                chatMessages.removeChild(loadingMessage);
-
-                appendMessage(data.response, 'bot');
-
-                if (data.is_creator) {
-                    chatHeader.style.backgroundColor = "#dc3545";
-                } else {
-                    chatHeader.style.backgroundColor = "#007bff";
-                }
-
-            } catch (error) {
-                console.error('Error sending message:', error);
-                chatMessages.removeChild(loadingMessage);
-                appendMessage('Error: Could not get a response. Please try again.', 'bot');
             }
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            function sendMessage() {
+                const userInput = $('#user-input').val();
+                if (userInput.trim() === '') return;
+
+                const userMessage = $('<div>').addClass('message user-message').text(userInput);
+                $('#chat-window').append(userMessage);
+
+                $('#user-input').val('');
+                $('#chat-window').scrollTop($('#chat-window')[0].scrollHeight);
+
+                $.post("{{ url_for('chat') }}", { user_input: userInput }, function(data) {
+                    const botMessage = $('<div>').addClass('message bot-message').text(data.response);
+                    $('#chat-window').append(botMessage);
+                    $('#chat-window').scrollTop($('#chat-window')[0].scrollHeight);
+                });
+            }
+
+            $('#send-button').click(sendMessage);
+            $('#user-input').keypress(function(e) {
+                if (e.which === 13) {
+                    sendMessage();
+                }
+            });
+
+            loadChatHistory();
         });
-
-        function appendMessage(text, sender, isLoading = false) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message', sender);
-
-            const bubbleDiv = document.createElement('div');
-            bubbleDiv.classList.add('message-bubble');
-
-            if (isLoading) {
-                bubbleDiv.textContent = 'Thinking...';
-                bubbleDiv.classList.add('loading-dots');
-            } else {
-                bubbleDiv.textContent = text;
-            }
-
-            messageDiv.appendChild(bubbleDiv);
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-            return messageDiv;
-        }
-
-        function setInitialHeaderColor() {
-            if (isCreatorInitial === 'True') {
-                if (isCreatorModeActive === 'True') {
-                    chatHeader.style.backgroundColor = "#dc3545";
-                } else {
-                    chatHeader.style.backgroundColor = "#007bff";
-                }
-            } else {
-                chatHeader.style.backgroundColor = "#007bff";
-            }
-        }
-
-        setInitialHeaderColor();
     </script>
 </body>
 </html>
