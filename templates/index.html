@@ -13,8 +13,28 @@
             --dark-color: #343a40;
             --light-text: #fff;
             --menu-width: 250px;
+            --chat-bg: #fff;
+            --chat-border: #ddd;
+            --user-bubble-bg: #e0f7fa;
+            --user-bubble-text: #004d40;
+            --bot-bubble-bg: #f1f0f0;
+            --bot-bubble-text: #333;
+            --input-border: #ced4da;
         }
 
+        body.dark-mode {
+            --secondary-color: #2c2c2c;
+            --dark-color: #f8f9fa;
+            --light-text: #343a40;
+            --chat-bg: #3c3c3c;
+            --chat-border: #555;
+            --user-bubble-bg: #555;
+            --user-bubble-text: #fff;
+            --bot-bubble-bg: #444;
+            --bot-bubble-text: #ddd;
+            --input-border: #666;
+        }
+        
         body {
             font-family: 'Roboto', sans-serif;
             margin: 0;
@@ -24,6 +44,7 @@
             height: 100vh;
             overflow: hidden;
             color: var(--dark-color);
+            transition: background-color 0.3s, color 0.3s;
         }
 
         /* --- Header --- */
@@ -91,6 +112,29 @@
         #sidebar a i {
             margin-right: 10px;
         }
+        .sidebar-item {
+            padding: 15px 20px;
+            color: var(--light-text);
+            border-bottom: 1px solid #495057;
+        }
+        #theme-toggle, #voice-toggle {
+            width: 100%;
+            text-align: left;
+            background: none;
+            border: none;
+            color: inherit;
+            padding: 0;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        #theme-toggle i, #voice-toggle i {
+            margin-right: 10px;
+        }
+        #language-select {
+            width: 100%;
+            padding: 5px;
+            margin-top: 5px;
+        }
 
         /* --- Main Content --- */
         #main-content {
@@ -116,17 +160,18 @@
         }
 
         #chat-window {
-            background-color: #fff;
-            border: 1px solid #ddd;
+            background-color: var(--chat-bg);
+            border: 1px solid var(--chat-border);
             border-radius: 8px;
             padding: 20px;
-            flex-grow: 1; /* This is the key change */
+            flex-grow: 1;
             overflow-y: scroll;
             display: flex;
             flex-direction: column;
             gap: 15px;
             box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
-            min-height: 200px; /* Reduced to give more space for the input box */
+            min-height: 200px;
+            transition: background-color 0.3s, border-color 0.3s;
         }
         .message {
             max-width: 80%;
@@ -137,14 +182,22 @@
         }
         .user-message {
             align-self: flex-end;
-            background-color: #e0f7fa;
-            color: #004d40;
+            background-color: var(--user-bubble-bg);
+            color: var(--user-bubble-text);
             border-bottom-right-radius: 5px;
         }
         .bot-message {
             align-self: flex-start;
-            background-color: #f1f0f0;
-            color: #333;
+            background-color: var(--bot-bubble-bg);
+            color: var(--bot-bubble-text);
+            border-bottom-left-radius: 5px;
+        }
+        .typing-indicator {
+            align-self: flex-start;
+            background-color: #e0e0e0;
+            color: #888;
+            padding: 10px 15px;
+            border-radius: 20px;
             border-bottom-left-radius: 5px;
         }
 
@@ -163,15 +216,22 @@
         #chat-window::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
+        body.dark-mode #chat-window::-webkit-scrollbar-track {
+            background: #444;
+        }
+        body.dark-mode #chat-window::-webkit-scrollbar-thumb {
+            background: #666;
+        }
 
         .chat-input {
             display: flex;
             margin-top: 20px;
+            align-items: center;
         }
         #user-input {
             flex-grow: 1;
             padding: 12px 20px;
-            border: 1px solid #ced4da;
+            border: 1px solid var(--input-border);
             border-radius: 25px;
             font-size: 16px;
             outline: none;
@@ -180,18 +240,22 @@
         #user-input:focus {
             border-color: var(--primary-color);
         }
-        #send-button {
+        .input-button {
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 12px 20px;
-            border-radius: 25px;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
             margin-left: 10px;
             cursor: pointer;
             font-size: 16px;
             transition: background-color 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        #send-button:hover {
+        .input-button:hover {
             background-color: #c82333;
         }
         .mode-text {
@@ -220,36 +284,58 @@
         }
     </style>
 </head>
-<body>
-
+<body class="light-mode">
     <div class="overlay" onclick="toggleMenu()"></div>
 
     <nav id="sidebar">
         <div style="padding: 20px; text-align: center;">
-            <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: var(--light-text);">Menu</p>
+            <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: var(--light-text);">{{ translations['menu'] }}</p>
         </div>
+        
+        <div class="sidebar-item">
+            <label for="language-select">{{ translations['select_language'] }}</label>
+            <select id="language-select">
+                <option value="en" {{ 'selected' if current_language == 'en' }}>English</option>
+                <option value="es" {{ 'selected' if current_language == 'es' }}>Spanish</option>
+            </select>
+        </div>
+        
+        <a href="#" id="theme-toggle" class="sidebar-item">
+            <i class="fas fa-moon"></i><span id="theme-text">{{ translations['dark_mode'] }}</span>
+        </a>
+        <a href="#" id="voice-toggle" class="sidebar-item">
+            <i class="fas fa-volume-up"></i><span id="voice-text">{{ translations['voice_output_on'] }}</span>
+        </a>
         
         {% if is_creator %}
         <a href="{{ url_for('toggle_mode') }}">
             <i class="fas fa-user-shield"></i>
             {% if is_creator_mode_active %}
-                Disable Creator Mode
+                {{ translations['disable_creator_mode'] }}
             {% else %}
-                Enable Creator Mode
+                {{ translations['enable_creator_mode'] }}
             {% endif %}
         </a>
         <a href="{{ url_for('review_sentiment') }}">
             <i class="fas fa-chart-line"></i>
-            Sentiment Review
+            {{ translations['sentiment_review'] }}
+        </a>
+        <a href="{{ url_for('export_sentiment') }}">
+            <i class="fas fa-file-export"></i>
+            {{ translations['export_sentiment_data'] }}
+        </a>
+        <a href="{{ url_for('manage_knowledge') }}">
+            <i class="fas fa-book"></i>
+            {{ translations['manage_knowledge'] }}
         </a>
         <a href="{{ url_for('logout') }}">
             <i class="fas fa-sign-out-alt"></i>
-            Creator Logout
+            {{ translations['creator_logout'] }}
         </a>
         {% else %}
         <a href="{{ url_for('logout_user') }}">
             <i class="fas fa-sign-out-alt"></i>
-            Logout
+            {{ translations['logout'] }}
         </a>
         {% endif %}
     </nav>
@@ -267,8 +353,9 @@
             <div id="chat-window">
                 </div>
             <div class="chat-input">
-                <input type="text" id="user-input" placeholder="Type your message...">
-                <button id="send-button"><i class="fas fa-paper-plane"></i></button>
+                <input type="text" id="user-input" placeholder="{{ translations['type_message'] }}">
+                <button id="mic-button" class="input-button"><i class="fas fa-microphone"></i></button>
+                <button id="send-button" class="input-button"><i class="fas fa-paper-plane"></i></button>
             </div>
             {% if is_creator %}
                 <div class="mode-text">
@@ -283,6 +370,9 @@
     
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+        // Store translations in a global variable for JavaScript access
+        const translations = JSON.parse('{{ translations | tojson | safe }}');
+        
         function toggleMenu() {
             document.getElementById('sidebar').classList.toggle('active');
             document.getElementById('main-content').classList.toggle('sidebar-active');
@@ -297,37 +387,138 @@
         }
 
         $(document).ready(function() {
+            const body = $('body');
+            const chatWindow = $('#chat-window');
+            const userInput = $('#user-input');
+            const themeToggle = $('#theme-toggle');
+            const voiceToggle = $('#voice-toggle');
+            const languageSelect = $('#language-select');
+
+            // Initial setup from localStorage
+            if (localStorage.getItem('theme') === 'dark') {
+                body.addClass('dark-mode');
+                themeToggle.find('i').removeClass('fa-moon').addClass('fa-sun');
+                $('#theme-text').text(translations['light_mode']);
+            } else {
+                body.removeClass('dark-mode');
+                themeToggle.find('i').removeClass('fa-sun').addClass('fa-moon');
+                $('#theme-text').text(translations['dark_mode']);
+            }
+
+            let voiceOutputEnabled = localStorage.getItem('voiceOutput') !== 'false';
+            if (voiceOutputEnabled) {
+                voiceToggle.find('i').removeClass('fa-volume-mute').addClass('fa-volume-up');
+                $('#voice-text').text(translations['voice_output_on']);
+            } else {
+                voiceToggle.find('i').removeClass('fa-volume-up').addClass('fa-volume-mute');
+                $('#voice-text').text(translations['voice_output_off']);
+            }
+
+            // Event Listeners for UI
+            themeToggle.on('click', function() {
+                body.toggleClass('dark-mode');
+                const isDarkMode = body.hasClass('dark-mode');
+                localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+                themeToggle.find('i').removeClass('fa-moon fa-sun').addClass(isDarkMode ? 'fa-sun' : 'fa-moon');
+                $('#theme-text').text(isDarkMode ? translations['light_mode'] : translations['dark_mode']);
+            });
+
+            voiceToggle.on('click', function() {
+                voiceOutputEnabled = !voiceOutputEnabled;
+                localStorage.setItem('voiceOutput', voiceOutputEnabled);
+                voiceToggle.find('i').removeClass('fa-volume-up fa-volume-mute').addClass(voiceOutputEnabled ? 'fa-volume-up' : 'fa-volume-mute');
+                $('#voice-text').text(voiceOutputEnabled ? translations['voice_output_on'] : translations['voice_output_off']);
+            });
+
+            languageSelect.on('change', function() {
+                const newLang = $(this).val();
+                $.post("{{ url_for('set_language') }}", { language: newLang }, function() {
+                    window.location.reload();
+                });
+            });
+
+            // Speech Recognition for Voice Input
+            const micButton = $('#mic-button');
+            let isListening = false;
+            let recognition;
+
+            if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+                recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.continuous = false;
+                recognition.lang = '{{ current_language }}';
+
+                recognition.onstart = function() {
+                    isListening = true;
+                    micButton.find('i').removeClass('fa-microphone').addClass('fa-spin fa-microphone');
+                    userInput.attr('placeholder', translations['type_message']);
+                };
+
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    userInput.val(transcript);
+                };
+
+                recognition.onend = function() {
+                    isListening = false;
+                    micButton.find('i').removeClass('fa-spin fa-microphone').addClass('fa-microphone');
+                    userInput.attr('placeholder', translations['type_message']);
+                };
+            } else {
+                micButton.hide(); // Hide the microphone button if not supported
+            }
+
+            micButton.on('click', function() {
+                if (isListening) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+
             function loadChatHistory() {
                 $.getJSON("{{ url_for('get_chat_history') }}", function(data) {
-                    $('#chat-window').empty();
+                    chatWindow.empty();
                     data.history.forEach(function(message) {
                         const messageClass = (message.role === 'user') ? 'user-message' : 'bot-message';
                         const newMessage = $('<div>').addClass('message').addClass(messageClass).text(message.parts[0]);
-                        $('#chat-window').append(newMessage);
+                        chatWindow.append(newMessage);
                     });
                     scrollToBottom();
                 });
             }
 
             function sendMessage() {
-                const userInput = $('#user-input').val();
-                if (userInput.trim() === '') return;
+                const userText = userInput.val();
+                if (userText.trim() === '') return;
 
-                const userMessage = $('<div>').addClass('message user-message').text(userInput);
-                $('#chat-window').append(userMessage);
+                const userMessage = $('<div>').addClass('message user-message').text(userText);
+                chatWindow.append(userMessage);
                 scrollToBottom();
 
-                $('#user-input').val('');
+                userInput.val('');
                 
-                $.post("{{ url_for('chat') }}", { user_input: userInput }, function(data) {
+                // Typing indicator
+                const typingIndicator = $('<div>').addClass('typing-indicator').text('...');
+                chatWindow.append(typingIndicator);
+                scrollToBottom();
+
+                $.post("{{ url_for('chat') }}", { user_input: userText }, function(data) {
+                    typingIndicator.remove();
                     const botMessage = $('<div>').addClass('message bot-message').text(data.response);
-                    $('#chat-window').append(botMessage);
+                    chatWindow.append(botMessage);
                     scrollToBottom();
+
+                    // Voice Output
+                    if (voiceOutputEnabled) {
+                        const utterance = new SpeechSynthesisUtterance(data.response);
+                        utterance.lang = '{{ current_language }}';
+                        window.speechSynthesis.speak(utterance);
+                    }
                 });
             }
 
             $('#send-button').click(sendMessage);
-            $('#user-input').keypress(function(e) {
+            userInput.keypress(function(e) {
                 if (e.which === 13) {
                     sendMessage();
                 }
