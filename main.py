@@ -2,11 +2,8 @@ import os
 import json
 import hashlib
 import google.generativeai as genai
-import smtplib
-import ssl
 import random
 
-from email.message import EmailMessage
 from textblob import TextBlob
 from collections import defaultdict
 
@@ -23,10 +20,6 @@ app = Flask(__name__)
 
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 flask_secret_key = os.getenv("FLASK_SECRET_KEY")
-email_address = os.getenv("EMAIL_ADDRESS")
-email_password = os.getenv("EMAIL_PASSWORD")
-email_smtp_server = os.getenv("EMAIL_SMTP_SERVER")
-email_smtp_port = os.getenv("EMAIL_SMTP_PORT")
 
 if not gemini_api_key:
     print("CRITICAL ERROR: GEMINI_API_KEY environment variable not set. AI functions will fail.")
@@ -49,6 +42,7 @@ model = genai.GenerativeModel('gemini-2.0-flash')
 
 BOT_NAME = "Shrey"
 CREATOR_NAME = "Shreyash"
+CREATOR_EMAIL = "creator@aiambassador.com"
 PASSWORD_FILE = "creator_password.hash"
 INFO_FILE = "myinfo.json"
 SENTIMENT_HISTORY_FILE = "user_sentiment_history.json"
@@ -166,29 +160,6 @@ def calculate_age(dob_str):
         return age
     except ValueError:
         return None
-
-def send_email_with_otp(recipient_email, otp_code):
-    """Sends a one-time password to the specified email address."""
-    if not all([email_address, email_password, email_smtp_server, email_smtp_port]):
-        print("Email sending is not configured. Please set EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_SMTP_SERVER, and EMAIL_SMTP_PORT in your Replit Secrets.")
-        return False
-
-    msg = EmailMessage()
-    msg.set_content(f"Your one-time password (OTP) is: {otp_code}\n\nThis code is valid for 5 minutes.")
-    msg['Subject'] = f"{BOT_NAME} - Your Login OTP"
-    msg['From'] = email_address
-    msg['To'] = recipient_email
-
-    context = ssl.create_default_context()
-    try:
-        with smtplib.SMTP(email_smtp_server, int(email_smtp_port)) as smtp:
-            smtp.starttls(context=context)
-            smtp.login(email_address, email_password)
-            smtp.send_message(msg)
-        return True
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        return False
 
 
 # --- AI Interaction Logic ---
@@ -320,54 +291,46 @@ def index():
                            is_creator_mode_active=is_creator_mode_active,
                            user_email=logged_in_user_email)
 
-# --- USER LOGIN ROUTES ---
+# --- USER LOGIN ROUTES (MODIFIED) ---
 @app.route('/email_login', methods=['GET'])
 def email_login():
     return render_template('email_login.html')
 
-@app.route('/send_otp', methods=['POST'])
-def send_otp():
-    email = request.form.get('email').strip()
+@app.route('/start_session', methods=['POST'])
+def start_session():
+    email = request.form.get('email').strip().lower()
     if not email:
         return render_template('email_login.html', error="Please enter a valid email address.")
-    
-    otp = str(random.randint(100000, 999999))
-    session['otp'] = otp
-    session['otp_email'] = email
-    session['otp_expiry'] = datetime.now() + timedelta(minutes=5)
-    
-    if send_email_with_otp(email, otp):
-        return redirect(url_for('verify_otp'))
+
+    session['logged_in_user'] = email
+    session.permanent = True
+    session.pop('chat_history', None) # Clear previous chat history
+
+    if email == CREATOR_EMAIL:
+        return redirect(url_for('creator_question'))
     else:
-        return render_template('email_login.html', error="Failed to send OTP. Please check your email configuration or try again.")
-
-@app.route('/verify_otp', methods=['GET'])
-def verify_otp():
-    if 'otp_email' not in session:
-        return redirect(url_for('email_login'))
-    return render_template('verify_otp.html')
-
-@app.route('/login_user', methods=['POST'])
-def login_user():
-    otp_attempt = request.form.get('otp').strip()
-    
-    if 'otp' not in session or 'otp_expiry' not in session or 'otp_email' not in session:
-        return render_template('verify_otp.html', error="Session expired or invalid. Please request a new OTP.", otp_email=session.get('otp_email'))
-
-    if datetime.now() > session['otp_expiry']:
-        session.pop('otp', None)
-        session.pop('otp_expiry', None)
-        return render_template('verify_otp.html', error="OTP has expired. Please request a new one.", otp_email=session.get('otp_email'))
-
-    if otp_attempt == session['otp']:
-        session['logged_in_user'] = session['otp_email']
-        session.permanent = True
-        session.pop('otp', None)
-        session.pop('otp_expiry', None)
-        session.pop('otp_email', None)
+        session['is_creator_logged_in'] = False
+        session['is_creator_mode_active'] = False
         return redirect(url_for('index'))
-    else:
-        return render_template('verify_otp.html', error="Invalid OTP. Please try again.", otp_email=session.get('otp_email'))
+
+@app.route('/creator_question')
+def creator_question():
+    if session.get('logged_in_user') != CREATOR_EMAIL:
+        return redirect(url_for('email_login'))
+    return render_template('creator_question.html')
+
+@app.route('/handle_creator_choice', methods=['POST'])
+def handle_creator_choice():
+    choice = request.form.get('choice')
+    if session.get('logged_in_user') != CREATOR_EMAIL:
+        return redirect(url_for('email_login'))
+
+    if choice == 'yes':
+        return redirect(url_for('login'))
+    else: # choice is 'no'
+        session['is_creator_logged_in'] = False
+        session['is_creator_mode_active'] = False
+        return redirect(url_for('index'))
 
 
 @app.route('/logout_user')
@@ -381,6 +344,9 @@ def logout_user():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error_message = None
+    if session.get('logged_in_user') != CREATOR_EMAIL:
+        return redirect(url_for('email_login'))
+
     if request.method == 'POST':
         password_attempt = request.form.get('password')
         if verify_creator(password_attempt):
@@ -424,7 +390,7 @@ def chat():
     bot_response = ""
 
     sentiment_analysis_result = analyze_sentiment(user_input)
-    log_sentiment(user_input, sentiment_analysis_result)
+    log_sentiment(user_input, sentiment_analysis_result, session.get('logged_in_user'))
     
     # Check for simple greetings and respond immediately
     if user_input.lower() in ["hi", "hello", "hey"]:
@@ -614,12 +580,13 @@ def analyze_sentiment(text):
     }
 
 
-def log_sentiment(user_input, sentiment_data):
-    """Logs the user input and its sentiment data to the history file."""
+def log_sentiment(user_input, sentiment_data, user_email):
+    """Logs the user input and its sentiment data to the history file,
+       associating it with the user's email."""
     global sentiment_history
 
     today_str = date.today().strftime("%Y-%m-%d")
-
+    
     if today_str not in sentiment_history:
         sentiment_history[today_str] = {
             "total_interactions": 0,
@@ -633,6 +600,7 @@ def log_sentiment(user_input, sentiment_data):
 
     sentiment_history[today_str]["interactions"].append({
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "user_email": user_email,
         "user_input": user_input,
         "sentiment": sentiment_data["sentiment_label"],
         "polarity": sentiment_data["polarity"]
@@ -644,7 +612,7 @@ def log_sentiment(user_input, sentiment_data):
 @app.route('/review_sentiment')
 def review_sentiment():
     if not session.get('is_creator_logged_in'):
-        return redirect(url_for('index'))
+        return redirect(url_for('email_login'))
     current_sentiment_history = load_sentiment_history()
     sentiment_display_data = []
     for day, data in current_sentiment_history.items():
