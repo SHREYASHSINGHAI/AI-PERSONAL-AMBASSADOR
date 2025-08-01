@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creator Verification</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .question-container {
+            background: #fff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+        h1 {
+            color: #343a40;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #6c757d;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+        }
+        .button-group button {
+            flex-grow: 1;
+            padding: 12px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .button-group button[name="choice"][value="yes"] {
+            background-color: #dc3545;
+            color: white;
+        }
+        .button-group button[name="choice"][value="yes"]:hover {
+            background-color: #c82333;
+        }
+        .button-group button[name="choice"][value="no"] {
+            background-color: #007bff;
+            color: white;
+        }
+        .button-group button[name="choice"][value="no"]:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="question-container">
+        <h1>Welcome, Creator!</h1>
+        <p>Are you referring to yourself as the Creator to manage the system?</p>
+        <form action="{{ url_for('handle_creator_choice') }}" method="post">
+            <div class="button-group">
+                <button type="submit" name="choice" value="yes">Yes</button>
+                <button type="submit" name="choice" value="no">No</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
