@@ -106,7 +106,7 @@
                 <ul class="interactions-list">
                     {% for interaction in day.interactions_detail %}
                         <li class="interaction-item">
-                            <p class="timestamp">{{ interaction.timestamp }}</p>
+                            <p class="timestamp">{{ interaction.timestamp }} - User: {{ interaction.user_email }}</p>
                             <p><strong>User Input:</strong> "{{ interaction.user_input }}"</p>
                             <p><strong>Sentiment:</strong> <span class="sentiment sentiment-{{ interaction.sentiment }}">{{ interaction.sentiment | capitalize }}</span> (Polarity: {{ "%.2f"|format(interaction.polarity) }})</p>
                         </li>
