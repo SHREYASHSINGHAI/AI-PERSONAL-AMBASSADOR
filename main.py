@@ -224,7 +224,6 @@ def logout_user():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error_message = None
-    # Ensure the user logged in with the creator email before showing the password form
     if session.get('logged_in_user') != CREATOR_EMAIL:
         return redirect(url_for('email_login'))
 
