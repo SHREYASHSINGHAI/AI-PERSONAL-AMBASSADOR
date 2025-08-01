@@ -123,7 +123,7 @@
             border-radius: 8px;
             padding: 20px;
             flex-grow: 1;
-            overflow-y: auto;
+            overflow-y: scroll; /* Changed to scroll to always show the scrollbar */
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -148,6 +148,22 @@
             background-color: #f1f0f0;
             color: #333;
             border-bottom-left-radius: 5px;
+        }
+
+        /* Style the scrollbar */
+        #chat-window::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-window::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        #chat-window::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        #chat-window::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
 
         .chat-input {
@@ -276,6 +292,14 @@
             document.getElementById('main-content').classList.toggle('sidebar-active');
             document.querySelector('.overlay').classList.toggle('active');
         }
+        
+        function scrollToBottom() {
+            const chatWindow = document.getElementById('chat-window');
+            // Using a slight delay to ensure new content is rendered
+            setTimeout(() => {
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }, 50); 
+        }
 
         $(document).ready(function() {
             function loadChatHistory() {
@@ -286,7 +310,7 @@
                         const newMessage = $('<div>').addClass('message').addClass(messageClass).text(message.parts[0]);
                         $('#chat-window').append(newMessage);
                     });
-                    $('#chat-window').scrollTop($('#chat-window')[0].scrollHeight);
+                    scrollToBottom();
                 });
             }
 
@@ -296,14 +320,14 @@
 
                 const userMessage = $('<div>').addClass('message user-message').text(userInput);
                 $('#chat-window').append(userMessage);
+                scrollToBottom();
 
                 $('#user-input').val('');
-                $('#chat-window').scrollTop($('#chat-window')[0].scrollHeight);
-
+                
                 $.post("{{ url_for('chat') }}", { user_input: userInput }, function(data) {
                     const botMessage = $('<div>').addClass('message bot-message').text(data.response);
                     $('#chat-window').append(botMessage);
-                    $('#chat-window').scrollTop($('#chat-window')[0].scrollHeight);
+                    scrollToBottom();
                 });
             }
 
