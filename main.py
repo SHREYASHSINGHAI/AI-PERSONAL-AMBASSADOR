@@ -340,7 +340,7 @@ def logout_user():
     return redirect(url_for('email_login'))
 
 
-# --- CREATOR LOGIN ROUTES (Modified) ---
+# --- CREATOR LOGIN ROUTES ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error_message = None
@@ -351,8 +351,9 @@ def login():
         password_attempt = request.form.get('password')
         if verify_creator(password_attempt):
             session['is_creator_logged_in'] = True
-            session['is_creator_mode_active'] = True # Set creator mode to active by default
+            session['is_creator_mode_active'] = True
             session.permanent = True
+            session.pop('chat_history', None)  # <-- This line was added
             return redirect(url_for('index'))
         else:
             error_message = "Invalid password. Please try again."
