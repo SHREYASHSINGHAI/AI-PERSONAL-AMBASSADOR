@@ -4,5 +4,4 @@ python-dotenv
 gunicorn
 textblob
 transformers
-flask
 torch
