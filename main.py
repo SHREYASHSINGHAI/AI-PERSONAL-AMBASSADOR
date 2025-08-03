@@ -37,7 +37,7 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1',
 
 # File paths
 MY_INFO_FILE = os.path.join(os.path.dirname(__file__), 'myinfo.json')
-SENTIMENT_HISTORY_FILE = os.path.join(os.path.dirname(__file__), 'user_sentiment_history.json')
+CONVERSATION_SENTIMENT_LOG = os.path.join(os.path.dirname(__file__), 'conversation_sentiment.log')
 
 # Translation dictionary for UI elements
 TRANSLATIONS = {
@@ -89,48 +89,40 @@ def save_info(info_data):
     with open(MY_INFO_FILE, 'w') as f:
         json.dump(info_data, f, indent=2)
 
-def load_sentiment_history():
-    if not os.path.exists(SENTIMENT_HISTORY_FILE):
-        return {}
-    try:
-        with open(SENTIMENT_HISTORY_FILE, 'r') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-def save_sentiment_history(history_data):
-    with open(SENTIMENT_HISTORY_FILE, 'w') as f:
-        json.dump(history_data, f, indent=2)
-
 def verify_creator(password):
     return password == CREATOR_PASSWORD
 
 def is_creator_logged_in():
     return session.get('is_creator_logged_in') and session.get('logged_in_user') == CREATOR_EMAIL
 
-def log_sentiment(user_input, sentiment_result, user_email):
-    sentiment_history = load_sentiment_history()
-    today_str = datetime.date.today().isoformat()
+def log_conversation_sentiment(chat_history, user_email):
+    """
+    Calculates the overall sentiment of a conversation and logs it to a file.
+    The overall sentiment is determined by the most frequent sentiment label.
+    """
+    if not chat_history:
+        return
 
-    if today_str not in sentiment_history:
-        sentiment_history[today_str] = {
-            'total_interactions': 0,
-            'sentiment_counts': {'positive': 0, 'negative': 0, 'neutral': 0},
-            'interactions': []
-        }
+    sentiment_counts = {'positive': 0, 'negative': 0, 'neutral': 0}
     
-    sentiment_history[today_str]['total_interactions'] += 1
-    sentiment_history[today_str]['sentiment_counts'][sentiment_result.get('label', 'neutral').lower()] += 1
-    
-    interaction = {
-        'timestamp': datetime.datetime.now().isoformat(),
-        'user_email': user_email,
-        'user_input': user_input,
-        'sentiment': sentiment_result
-    }
-    
-    sentiment_history[today_str]['interactions'].append(interaction)
-    save_sentiment_history(sentiment_history)
+    # Process each user message in the chat history
+    for message in chat_history:
+        if message['role'] == 'user':
+            user_input = message['parts'][0]
+            sentiment_result = perform_sentiment_analysis(user_input)
+            sentiment_label = sentiment_result.get('label', 'neutral').lower()
+            sentiment_counts[sentiment_label] += 1
+            
+    # Determine the overall sentiment
+    overall_sentiment = max(sentiment_counts, key=sentiment_counts.get)
+    if sentiment_counts[overall_sentiment] == 0:
+        overall_sentiment = 'neutral'
+
+    timestamp = datetime.datetime.now().isoformat()
+    log_line = f"Timestamp: {timestamp} | User: {user_email} | Overall Conversation Sentiment: {overall_sentiment}\n"
+
+    with open(CONVERSATION_SENTIMENT_LOG, 'a') as f:
+        f.write(log_line)
 
 def login_required(f):
     @wraps(f)
@@ -216,6 +208,8 @@ def verify_otp():
 
 @app.route('/logout_user')
 def logout_user():
+    # Log the conversation sentiment before logging out
+    log_conversation_sentiment(session.get('chat_history', []), session.get('logged_in_user'))
     session.pop('logged_in_user', None)
     session.pop('chat_history', None)
     return redirect(url_for('email_login'))
@@ -241,6 +235,8 @@ def login():
 
 @app.route('/logout')
 def logout():
+    # Log the conversation sentiment before logging out
+    log_conversation_sentiment(session.get('chat_history', []), session.get('logged_in_user'))
     session.pop('logged_in_user', None)
     session.pop('is_creator_logged_in', None)
     session.pop('is_creator_mode_active', None)
@@ -279,10 +275,7 @@ def chat():
         bot_response = get_gpt_creator_response(user_input, my_info)
     else:
         bot_response = get_gpt_response(user_input, my_info, session_chat_history, lang)
-        
-    sentiment_analysis_result = perform_sentiment_analysis(user_input)
-    log_sentiment(user_input, sentiment_analysis_result, session.get('logged_in_user'))
-
+    
     session_chat_history.append({"role": "user", "parts": [user_input]})
     session_chat_history.append({"role": "model", "parts": [bot_response]})
     
@@ -300,6 +293,9 @@ def get_chat_history():
 def toggle_mode():
     if is_creator_logged_in():
         session['is_creator_mode_active'] = not session.get('is_creator_mode_active', False)
+    # Log the conversation sentiment before toggling mode, as this effectively ends a "conversation"
+    log_conversation_sentiment(session.get('chat_history', []), session.get('logged_in_user'))
+    session.pop('chat_history', None)
     return redirect(url_for('index'))
 
 @app.route('/set_language', methods=['POST'])
@@ -311,48 +307,21 @@ def set_language():
     return jsonify({'status': 'success'})
 
 # --- CREATOR TOOLS ROUTES ---
+# The following routes for sentiment review and export have been disabled
+# to align with the new logging requirement of logging a single overall
+# sentiment per conversation.
+
 @app.route('/review_sentiment')
 @login_required
 def review_sentiment():
-    if not is_creator_logged_in():
-        return redirect(url_for('email_login'))
-    
-    current_sentiment_history = load_sentiment_history()
-    sentiment_display_data = []
-    for day, data in current_sentiment_history.items():
-        sentiment_display_data.append({
-            "date": day,
-            "total_interactions": data["total_interactions"],
-            "positive": data["sentiment_counts"].get("positive", 0),
-            "negative": data["sentiment_counts"].get("negative", 0),
-            "neutral": data["sentiment_counts"].get("neutral", 0),
-            "interactions_detail": data["interactions"]
-        })
-    sentiment_display_data.sort(key=lambda x: x['date'], reverse=True)
-    return render_template('review_sentiment.html', sentiment_data=sentiment_display_data)
+    # This feature is no longer supported with the new sentiment logging method.
+    return "This feature is no longer available."
 
 @app.route('/export_sentiment')
 @login_required
 def export_sentiment():
-    if not is_creator_logged_in():
-        return redirect(url_for('email_login'))
-    
-    sentiment_history = load_sentiment_history()
-    csv_data = "Date,Timestamp,User Email,Sentiment Label,User Question\n"
-
-    for day, data in sentiment_history.items():
-        for interaction in data['interactions']:
-            timestamp = interaction['timestamp']
-            user_email = interaction['user_email']
-            sentiment_label = interaction['sentiment']['label']
-            user_input = interaction['user_input'].replace(',', '')
-            csv_data += f"{day},{timestamp},{user_email},{sentiment_label},\"{user_input}\"\n"
-
-    csv_file_path = os.path.join(app.root_path, 'sentiment_log.csv')
-    with open(csv_file_path, 'w') as f:
-        f.write(csv_data)
-        
-    return send_file(csv_file_path, as_attachment=True, download_name='sentiment_log.csv', mimetype='text/csv')
+    # This feature is no longer supported with the new sentiment logging method.
+    return "This feature is no longer available."
 
 @app.route('/manage_knowledge', methods=['GET', 'POST'])
 @login_required
