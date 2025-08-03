@@ -1,531 +1,314 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ bot_name }}'s Ambassador</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <title>{{ bot_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
     <style>
-        :root {
-            --primary-color: #dc3545;
-            --secondary-color: #f8f9fa;
-            --dark-color: #343a40;
-            --light-text: #fff;
-            --menu-width: 250px;
-            --chat-bg: #fff;
-            --chat-border: #ddd;
-            --user-bubble-bg: #e0f7fa;
-            --user-bubble-text: #004d40;
-            --bot-bubble-bg: #f1f0f0;
-            --bot-bubble-text: #333;
-            --input-border: #ced4da;
-        }
-
-        body.dark-mode {
-            --secondary-color: #2c2c2c;
-            --dark-color: #f8f9fa;
-            --light-text: #343a40;
-            --chat-bg: #3c3c3c;
-            --chat-border: #555;
-            --user-bubble-bg: #555;
-            --user-bubble-text: #fff;
-            --bot-bubble-bg: #444;
-            --bot-bubble-text: #ddd;
-            --input-border: #666;
-        }
-        
-        body {
-            font-family: 'Roboto', sans-serif;
-            margin: 0;
-            background-color: var(--secondary-color);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-            color: var(--dark-color);
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        /* --- Header --- */
-        header {
-            background-color: var(--primary-color);
-            color: var(--light-text);
-            padding: 10px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            z-index: 1000;
-        }
-        header .header-left {
-            display: flex;
-            align-items: center;
-        }
-        #menu-toggle {
-            background: none;
-            border: none;
-            color: var(--light-text);
-            font-size: 24px;
-            cursor: pointer;
-            margin-right: 15px;
-        }
-        .header-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-        .header-user {
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-
-        /* --- Sidebar Menu --- */
-        #sidebar {
-            width: var(--menu-width);
-            height: 100%;
-            background-color: var(--dark-color);
-            color: var(--light-text);
-            position: fixed;
-            top: 0;
-            left: calc(-1 * var(--menu-width));
-            transition: left 0.3s ease;
-            z-index: 1001;
-            padding-top: 60px;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-        }
-        #sidebar.active {
-            left: 0;
-        }
-        #sidebar a {
-            padding: 15px 20px;
-            text-decoration: none;
-            color: var(--light-text);
-            display: block;
-            border-bottom: 1px solid #495057;
-            transition: background-color 0.2s ease;
-        }
-        #sidebar a:hover {
-            background-color: var(--primary-color);
-        }
-        #sidebar a i {
-            margin-right: 10px;
-        }
-        .sidebar-item {
-            padding: 15px 20px;
-            color: var(--light-text);
-            border-bottom: 1px solid #495057;
-        }
-        #theme-toggle, #voice-toggle {
-            width: 100%;
-            text-align: left;
-            background: none;
-            border: none;
-            color: inherit;
-            padding: 0;
-            font-size: 1em;
-            cursor: pointer;
-        }
-        #theme-toggle i, #voice-toggle i {
-            margin-right: 10px;
-        }
-        #language-select {
-            width: 100%;
-            padding: 5px;
-            margin-top: 5px;
-        }
-
-        /* --- Main Content --- */
-        #main-content {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            transition: margin-left 0.3s ease;
-            margin-left: 0;
-        }
-        body.sidebar-active #main-content {
-            margin-left: var(--menu-width);
-        }
-        
-        .chat-container {
-            max-width: 800px;
-            width: 100%;
-            margin: 20px auto;
-            padding: 0 20px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            flex-grow: 1;
-        }
-
-        #chat-window {
-            background-color: var(--chat-bg);
-            border: 1px solid var(--chat-border);
-            border-radius: 8px;
-            padding: 20px;
-            flex-grow: 1;
-            overflow-y: scroll;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
-            min-height: 200px;
-            transition: background-color 0.3s, border-color 0.3s;
-        }
-        .message {
-            max-width: 80%;
-            padding: 10px 15px;
-            border-radius: 20px;
-            line-height: 1.5;
-            word-wrap: break-word;
-        }
-        .user-message {
-            align-self: flex-end;
-            background-color: var(--user-bubble-bg);
-            color: var(--user-bubble-text);
-            border-bottom-right-radius: 5px;
-        }
-        .bot-message {
-            align-self: flex-start;
-            background-color: var(--bot-bubble-bg);
-            color: var(--bot-bubble-text);
-            border-bottom-left-radius: 5px;
-        }
-        .typing-indicator {
-            align-self: flex-start;
-            background-color: #e0e0e0;
-            color: #888;
-            padding: 10px 15px;
-            border-radius: 20px;
-            border-bottom-left-radius: 5px;
-        }
-
-        /* Style the scrollbar */
-        #chat-window::-webkit-scrollbar {
-            width: 8px;
-        }
-        #chat-window::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        #chat-window::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-        #chat-window::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-        body.dark-mode #chat-window::-webkit-scrollbar-track {
-            background: #444;
-        }
-        body.dark-mode #chat-window::-webkit-scrollbar-thumb {
-            background: #666;
-        }
-
-        .chat-input {
-            display: flex;
-            margin-top: 20px;
-            align-items: center;
-        }
-        #user-input {
-            flex-grow: 1;
-            padding: 12px 20px;
-            border: 1px solid var(--input-border);
-            border-radius: 25px;
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        #user-input:focus {
-            border-color: var(--primary-color);
-        }
-        .input-button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            margin-left: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .input-button:hover {
-            background-color: #c82333;
-        }
-        .mode-text {
-            font-size: 0.9em;
-            color: #6c757d;
-            text-align: center;
-            margin-top: 10px;
-        }
-        
-        /* Overlay to close menu on click outside */
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-            z-index: 1000;
-        }
-        .overlay.active {
-            visibility: visible;
-            opacity: 1;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .chat-message.bot { background-color: #f3f4f6; border-radius: 1rem 1rem 1rem 0; }
+        .chat-message.user { background-color: #3b82f6; color: white; border-radius: 1rem 1rem 0 1rem; }
     </style>
 </head>
-<body class="light-mode">
-    <div class="overlay" onclick="toggleMenu()"></div>
-
-    <nav id="sidebar">
-        <div style="padding: 20px; text-align: center;">
-            <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: var(--light-text);">{{ translations['menu'] }}</p>
-        </div>
-        
-        <div class="sidebar-item">
-            <label for="language-select">{{ translations['select_language'] }}</label>
-            <select id="language-select">
-                <option value="en" {{ 'selected' if current_language == 'en' }}>English</option>
-                <option value="es" {{ 'selected' if current_language == 'es' }}>Spanish</option>
-            </select>
-        </div>
-        
-        <a href="#" id="theme-toggle" class="sidebar-item">
-            <i class="fas fa-moon"></i><span id="theme-text">{{ translations['dark_mode'] }}</span>
-        </a>
-        <a href="#" id="voice-toggle" class="sidebar-item">
-            <i class="fas fa-volume-up"></i><span id="voice-text">{{ translations['voice_output_on'] }}</span>
-        </a>
-        
-        {% if is_creator %}
-        <a href="{{ url_for('toggle_mode') }}">
-            <i class="fas fa-user-shield"></i>
-            {% if is_creator_mode_active %}
-                {{ translations['disable_creator_mode'] }}
-            {% else %}
-                {{ translations['enable_creator_mode'] }}
-            {% endif %}
-        </a>
-        <a href="{{ url_for('review_sentiment') }}">
-            <i class="fas fa-chart-line"></i>
-            {{ translations['sentiment_review'] }}
-        </a>
-        <a href="{{ url_for('export_sentiment') }}">
-            <i class="fas fa-file-export"></i>
-            {{ translations['export_sentiment_data'] }}
-        </a>
-        <a href="{{ url_for('manage_knowledge') }}">
-            <i class="fas fa-book"></i>
-            {{ translations['manage_knowledge'] }}
-        </a>
-        <a href="{{ url_for('logout') }}">
-            <i class="fas fa-sign-out-alt"></i>
-            {{ translations['creator_logout'] }}
-        </a>
-        {% else %}
-        <a href="{{ url_for('logout_user') }}">
-            <i class="fas fa-sign-out-alt"></i>
-            {{ translations['logout'] }}
-        </a>
-        {% endif %}
-    </nav>
-
-    <div id="main-content">
-        <header>
-            <div class="header-left">
-                <button id="menu-toggle" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
-                <div class="header-title">{{ bot_name }}'s Ambassador</div>
+<body class="bg-gray-50 flex flex-col h-screen overflow-hidden">
+    <!-- Main Chat Interface -->
+    <div class="flex-1 flex flex-col">
+        <!-- Header -->
+        <header class="bg-white shadow-sm p-4 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <!-- Menu Toggle Button -->
+                <button id="menu-toggle" class="text-gray-600 focus:outline-none md:hidden">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h1 class="text-2xl font-bold text-gray-800">{{ bot_name }}</h1>
             </div>
-            <div class="header-user">{{ user_email }}</div>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-500">Logged in as: {{ user_email }}</span>
+            </div>
         </header>
 
-        <div class="chat-container">
-            <div id="chat-window">
+        <!-- Main Content Area -->
+        <main class="flex flex-1 overflow-hidden">
+            <!-- Sidebar (Desktop View) -->
+            <aside id="sidebar-desktop" class="hidden md:block w-64 bg-gray-100 p-4 border-r border-gray-200 shadow-md">
+                <nav class="flex flex-col space-y-2">
+                    {% if is_creator %}
+                    <a href="{{ url_for('manage_knowledge') }}" class="p-3 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                        <i class="fas fa-book text-xl"></i>
+                        <span>{{ translations.manage_knowledge }}</span>
+                    </a>
+                    <a href="{{ url_for('review_sentiment') }}" class="p-3 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                        <i class="fas fa-chart-bar text-xl"></i>
+                        <span>{{ translations.sentiment_review }}</span>
+                    </a>
+                    <a href="{{ url_for('export_sentiment') }}" class="p-3 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                        <i class="fas fa-file-csv text-xl"></i>
+                        <span>{{ translations.export_sentiment_data }}</span>
+                    </a>
+                    <button onclick="toggleCreatorMode()" class="w-full p-3 rounded-lg text-left text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                        <i class="fas fa-user-shield text-xl"></i>
+                        <span>
+                            {% if is_creator_mode_active %}
+                                {{ translations.disable_creator_mode }}
+                            {% else %}
+                                {{ translations.enable_creator_mode }}
+                            {% endif %}
+                        </span>
+                    </button>
+                    {% endif %}
+                    
+                    <div class="border-t border-gray-300 my-2"></div>
+
+                    <button id="toggle-voice" class="w-full p-3 rounded-lg text-left text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                        <i class="fas fa-volume-up text-xl"></i>
+                        <span id="voice-text">Voice Output: Off</span>
+                    </button>
+                    <button id="toggle-dark-mode" class="w-full p-3 rounded-lg text-left text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                        <i class="fas fa-moon text-xl"></i>
+                        <span id="dark-mode-text">Dark Mode</span>
+                    </button>
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-language text-xl text-gray-700"></i>
+                        <select id="language-select" class="p-2 rounded-lg bg-white border border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="en">English</option>
+                            <option value="es">Español</option>
+                        </select>
+                    </div>
+
+                    <a href="{{ url_for('logout') if is_creator else url_for('logout_user') }}" class="p-3 rounded-lg text-red-600 hover:bg-red-100 transition-colors duration-200 flex items-center space-x-3">
+                        <i class="fas fa-sign-out-alt text-xl"></i>
+                        <span>{% if is_creator %}{{ translations.creator_logout }}{% else %}{{ translations.logout }}{% endif %}</span>
+                    </a>
+                </nav>
+            </aside>
+
+            <!-- Chat Window -->
+            <div class="flex-1 flex flex-col p-4 bg-white overflow-hidden">
+                <div id="chat-window" class="flex-1 overflow-y-auto space-y-4 p-4 rounded-lg bg-gray-50 border border-gray-200">
+                    <!-- Chat messages will be appended here -->
+                    <div class="flex justify-start">
+                        <div class="chat-message bot p-3 max-w-xl shadow-md">
+                            Hello, I am {{ bot_name }}. How can I help you today?
+                        </div>
+                    </div>
                 </div>
-            <div class="chat-input">
-                <input type="text" id="user-input" placeholder="{{ translations['type_message'] }}">
-                <button id="mic-button" class="input-button"><i class="fas fa-microphone"></i></button>
-                <button id="send-button" class="input-button"><i class="fas fa-paper-plane"></i></button>
+
+                <!-- Input Form -->
+                <form id="chat-form" class="mt-4 flex items-center space-x-2">
+                    <input type="text" name="user_input" id="user-input" placeholder="{{ translations.type_message }}" class="flex-1 p-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full w-12 h-12 flex items-center justify-center transition-colors duration-200">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
             </div>
-            {% if is_creator %}
-                <div class="mode-text">
-                    Creator Mode is currently: 
-                    <span style="color: {{ 'green' if is_creator_mode_active else 'red' }}; font-weight: bold;">
-                        {{ 'Enabled' if is_creator_mode_active else 'Disabled' }}
+        </main>
+    </div>
+
+    <!-- Mobile Menu Modal -->
+    <div id="menu-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 z-50 hidden md:hidden transition-opacity duration-300 opacity-0">
+        <div class="relative w-64 bg-white h-full shadow-lg p-4">
+            <button id="close-menu" class="absolute top-4 right-4 text-gray-600 focus:outline-none">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <nav class="flex flex-col space-y-2 mt-8">
+                {% if is_creator %}
+                <a href="{{ url_for('manage_knowledge') }}" class="p-3 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                    <i class="fas fa-book text-xl"></i>
+                    <span>{{ translations.manage_knowledge }}</span>
+                </a>
+                <a href="{{ url_for('review_sentiment') }}" class="p-3 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                    <i class="fas fa-chart-bar text-xl"></i>
+                    <span>{{ translations.sentiment_review }}</span>
+                </a>
+                <a href="{{ url_for('export_sentiment') }}" class="p-3 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                    <i class="fas fa-file-csv text-xl"></i>
+                    <span>{{ translations.export_sentiment_data }}</span>
+                </a>
+                <button onclick="toggleCreatorMode()" class="w-full p-3 rounded-lg text-left text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                    <i class="fas fa-user-shield text-xl"></i>
+                    <span>
+                        {% if is_creator_mode_active %}
+                            {{ translations.disable_creator_mode }}
+                        {% else %}
+                            {{ translations.enable_creator_mode }}
+                        {% endif %}
                     </span>
+                </button>
+                {% endif %}
+                
+                <div class="border-t border-gray-300 my-2"></div>
+
+                <button id="toggle-voice-modal" class="w-full p-3 rounded-lg text-left text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                    <i class="fas fa-volume-up text-xl"></i>
+                    <span id="voice-text-modal">Voice Output: Off</span>
+                </button>
+                <button id="toggle-dark-mode-modal" class="w-full p-3 rounded-lg text-left text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-3">
+                    <i class="fas fa-moon text-xl"></i>
+                    <span id="dark-mode-text-modal">Dark Mode</span>
+                </button>
+                <div class="flex items-center space-x-3 p-3">
+                    <i class="fas fa-language text-xl text-gray-700"></i>
+                    <select id="language-select-modal" class="p-2 rounded-lg bg-white border border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                    </select>
                 </div>
-            {% endif %}
+                
+                <a href="{{ url_for('logout') if is_creator else url_for('logout_user') }}" class="p-3 rounded-lg text-red-600 hover:bg-red-100 transition-colors duration-200 flex items-center space-x-3">
+                    <i class="fas fa-sign-out-alt text-xl"></i>
+                    <span>{% if is_creator %}{{ translations.creator_logout }}{% else %}{{ translations.logout }}{% endif %}</span>
+                </a>
+            </nav>
         </div>
     </div>
     
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        // Store translations in a global variable for JavaScript access
-        const translations = JSON.parse('{{ translations | tojson | safe }}');
+        const chatForm = document.getElementById('chat-form');
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('user-input');
+        const languageSelect = document.getElementById('language-select');
+        const languageSelectModal = document.getElementById('language-select-modal');
+        const menuToggle = document.getElementById('menu-toggle');
+        const menuModal = document.getElementById('menu-modal');
+        const closeMenu = document.getElementById('close-menu');
+        const sidebarDesktop = document.getElementById('sidebar-desktop');
         
-        function toggleMenu() {
-            document.getElementById('sidebar').classList.toggle('active');
-            document.getElementById('main-content').classList.toggle('sidebar-active');
-            document.querySelector('.overlay').classList.toggle('active');
-        }
-        
-        function scrollToBottom() {
-            const chatWindow = document.getElementById('chat-window');
-            setTimeout(() => {
-                chatWindow.scrollTop = chatWindow.scrollHeight;
-            }, 50); 
-        }
+        let isVoiceOutputEnabled = false;
 
-        $(document).ready(function() {
-            const body = $('body');
-            const chatWindow = $('#chat-window');
-            const userInput = $('#user-input');
-            const themeToggle = $('#theme-toggle');
-            const voiceToggle = $('#voice-toggle');
-            const languageSelect = $('#language-select');
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // Set initial language selection
+            const currentLang = "{{ current_language }}";
+            languageSelect.value = currentLang;
+            languageSelectModal.value = currentLang;
+        });
 
-            // Initial setup from localStorage
-            if (localStorage.getItem('theme') === 'dark') {
-                body.addClass('dark-mode');
-                themeToggle.find('i').removeClass('fa-moon').addClass('fa-sun');
-                $('#theme-text').text(translations['light_mode']);
-            } else {
-                body.removeClass('dark-mode');
-                themeToggle.find('i').removeClass('fa-sun').addClass('fa-moon');
-                $('#theme-text').text(translations['dark_mode']);
-            }
-
-            let voiceOutputEnabled = localStorage.getItem('voiceOutput') !== 'false';
-            if (voiceOutputEnabled) {
-                voiceToggle.find('i').removeClass('fa-volume-mute').addClass('fa-volume-up');
-                $('#voice-text').text(translations['voice_output_on']);
-            } else {
-                voiceToggle.find('i').removeClass('fa-volume-up').addClass('fa-volume-mute');
-                $('#voice-text').text(translations['voice_output_off']);
-            }
-
-            // Event Listeners for UI
-            themeToggle.on('click', function() {
-                body.toggleClass('dark-mode');
-                const isDarkMode = body.hasClass('dark-mode');
-                localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-                themeToggle.find('i').removeClass('fa-moon fa-sun').addClass(isDarkMode ? 'fa-sun' : 'fa-moon');
-                $('#theme-text').text(isDarkMode ? translations['light_mode'] : translations['dark_mode']);
-            });
-
-            voiceToggle.on('click', function() {
-                voiceOutputEnabled = !voiceOutputEnabled;
-                localStorage.setItem('voiceOutput', voiceOutputEnabled);
-                voiceToggle.find('i').removeClass('fa-volume-up fa-volume-mute').addClass(voiceOutputEnabled ? 'fa-volume-up' : 'fa-volume-mute');
-                $('#voice-text').text(voiceOutputEnabled ? translations['voice_output_on'] : translations['voice_output_off']);
-            });
-
-            languageSelect.on('change', function() {
-                const newLang = $(this).val();
-                $.post("{{ url_for('set_language') }}", { language: newLang }, function() {
-                    window.location.reload();
-                });
-            });
-
-            // Speech Recognition for Voice Input
-            const micButton = $('#mic-button');
-            let isListening = false;
-            let recognition;
-
-            if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-                recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-                recognition.continuous = false;
-                recognition.lang = '{{ current_language }}';
-
-                recognition.onstart = function() {
-                    isListening = true;
-                    micButton.find('i').removeClass('fa-microphone').addClass('fa-spin fa-microphone');
-                    userInput.attr('placeholder', translations['type_message']);
-                };
-
-                recognition.onresult = function(event) {
-                    const transcript = event.results[0][0].transcript;
-                    userInput.val(transcript);
-                };
-
-                recognition.onend = function() {
-                    isListening = false;
-                    micButton.find('i').removeClass('fa-spin fa-microphone').addClass('fa-microphone');
-                    userInput.attr('placeholder', translations['type_message']);
-                };
-            } else {
-                micButton.hide(); // Hide the microphone button if not supported
-            }
-
-            micButton.on('click', function() {
-                if (isListening) {
-                    recognition.stop();
-                } else {
-                    recognition.start();
-                }
-            });
-
-            function loadChatHistory() {
-                $.getJSON("{{ url_for('get_chat_history') }}", function(data) {
-                    chatWindow.empty();
-                    data.history.forEach(function(message) {
-                        const messageClass = (message.role === 'user') ? 'user-message' : 'bot-message';
-                        const newMessage = $('<div>').addClass('message').addClass(messageClass).text(message.parts[0]);
-                        chatWindow.append(newMessage);
-                    });
-                    scrollToBottom();
-                });
-            }
-
-            function sendMessage() {
-                const userText = userInput.val();
-                if (userText.trim() === '') return;
-
-                const userMessage = $('<div>').addClass('message user-message').text(userText);
-                chatWindow.append(userMessage);
-                scrollToBottom();
-
-                userInput.val('');
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userMessage = userInput.value.trim();
+            if (userMessage) {
+                appendMessage(userMessage, 'user');
+                userInput.value = '';
                 
-                // Typing indicator
-                const typingIndicator = $('<div>').addClass('typing-indicator').text('...');
-                chatWindow.append(typingIndicator);
-                scrollToBottom();
+                try {
+                    const response = await fetch('/chat', {
+                        method: 'POST',
+                        body: new URLSearchParams({ user_input: userMessage }),
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    });
+                    const data = await response.json();
+                    appendMessage(data.response, 'bot');
+                } catch (error) {
+                    console.error('Error:', error);
+                    appendMessage('Sorry, something went wrong. Please try again.', 'bot');
+                }
+            }
+        });
 
-                $.post("{{ url_for('chat') }}", { user_input: userText }, function(data) {
-                    typingIndicator.remove();
-                    const botMessage = $('<div>').addClass('message bot-message').text(data.response);
-                    chatWindow.append(botMessage);
-                    scrollToBottom();
+        function appendMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            const messageBubble = document.createElement('div');
+            messageBubble.className = `chat-message p-3 max-w-xl shadow-md ${sender === 'user' ? 'user' : 'bot'}`;
+            messageBubble.innerText = text;
+            
+            messageDiv.appendChild(messageBubble);
+            chatWindow.appendChild(messageDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
 
-                    // Voice Output
-                    if (voiceOutputEnabled) {
-                        const utterance = new SpeechSynthesisUtterance(data.response);
-                        utterance.lang = '{{ current_language }}';
-                        window.speechSynthesis.speak(utterance);
+            if (isVoiceOutputEnabled && sender === 'bot') {
+                speak(text);
+            }
+        }
+        
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = "{{ current_language }}";
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Toggle voice output
+        document.getElementById('toggle-voice').addEventListener('click', () => {
+            isVoiceOutputEnabled = !isVoiceOutputEnabled;
+            updateVoiceButtonText();
+        });
+        document.getElementById('toggle-voice-modal').addEventListener('click', () => {
+            isVoiceOutputEnabled = !isVoiceOutputEnabled;
+            updateVoiceButtonText();
+        });
+        function updateVoiceButtonText() {
+            const voiceText = document.getElementById('voice-text');
+            const voiceTextModal = document.getElementById('voice-text-modal');
+            if (isVoiceOutputEnabled) {
+                voiceText.innerText = "{{ translations.voice_output_on }}";
+                voiceTextModal.innerText = "{{ translations.voice_output_on }}";
+            } else {
+                voiceText.innerText = "{{ translations.voice_output_off }}";
+                voiceTextModal.innerText = "{{ translations.voice_output_off }}";
+            }
+        }
+
+        // Toggle dark mode
+        const toggleDarkMode = () => {
+            document.body.classList.toggle('dark');
+            const isDarkMode = document.body.classList.contains('dark');
+            const darkModeText = document.getElementById('dark-mode-text');
+            const darkModeTextModal = document.getElementById('dark-mode-text-modal');
+            if (isDarkMode) {
+                darkModeText.innerText = "{{ translations.light_mode }}";
+                darkModeTextModal.innerText = "{{ translations.light_mode }}";
+            } else {
+                darkModeText.innerText = "{{ translations.dark_mode }}";
+                darkModeTextModal.innerText = "{{ translations.dark_mode }}";
+            }
+        };
+        document.getElementById('toggle-dark-mode').addEventListener('click', toggleDarkMode);
+        document.getElementById('toggle-dark-mode-modal').addEventListener('click', toggleDarkMode);
+
+        // Language selection
+        languageSelect.addEventListener('change', (e) => {
+            setLanguage(e.target.value);
+        });
+        languageSelectModal.addEventListener('change', (e) => {
+            setLanguage(e.target.value);
+        });
+        async function setLanguage(language) {
+            try {
+                await fetch('/set_language', {
+                    method: 'POST',
+                    body: new URLSearchParams({ language: language }),
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
                     }
                 });
+                window.location.reload();
+            } catch (error) {
+                console.error('Error setting language:', error);
             }
+        }
 
-            $('#send-button').click(sendMessage);
-            userInput.keypress(function(e) {
-                if (e.which === 13) {
-                    sendMessage();
-                }
-            });
-
-            loadChatHistory();
+        // Menu toggle functionality for mobile
+        menuToggle.addEventListener('click', () => {
+            menuModal.classList.remove('hidden');
+            setTimeout(() => {
+                menuModal.classList.remove('opacity-0');
+            }, 10);
         });
+        closeMenu.addEventListener('click', () => {
+            menuModal.classList.add('opacity-0');
+            setTimeout(() => {
+                menuModal.classList.add('hidden');
+            }, 300);
+        });
+
+        function toggleCreatorMode() {
+            window.location.href = "{{ url_for('toggle_mode') }}";
+        }
     </script>
 </body>
 </html>
