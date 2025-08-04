@@ -1,0 +1,8 @@
+pycache
+*.pyc
+.git
+.gitignore
+*.log
+poetry.lock
+pyproject.toml
+venv
