@@ -11,8 +11,9 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
 from werkzeug.exceptions import BadRequest
 from dotenv import load_dotenv
-from sentiment_analysis import perform_sentiment_analysis
+from sentiment_analysis import perform_sentiment_analysis_lazy_load
 from gpt_model import get_gpt_response, get_gpt_creator_response
+from transformers import pipeline
 
 # Load environment variables
 load_dotenv()
@@ -38,6 +39,20 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1',
 # File paths
 MY_INFO_FILE = os.path.join(os.path.dirname(__file__), 'myinfo.json')
 CONVERSATION_SENTIMENT_LOG = os.path.join(os.path.dirname(__file__), 'conversation_sentiment.log')
+
+# Global variable for lazy-loading the sentiment analysis model
+sentiment_analysis_pipeline = None
+
+def get_sentiment_pipeline():
+    """
+    Lazily loads the sentiment analysis pipeline.
+    """
+    global sentiment_analysis_pipeline
+    if sentiment_analysis_pipeline is None:
+        print("Loading sentiment analysis model...")
+        sentiment_analysis_pipeline = pipeline("sentiment-analysis")
+        print("Model loaded successfully.")
+    return sentiment_analysis_pipeline
 
 # Translation dictionary for UI elements
 TRANSLATIONS = {
@@ -104,12 +119,14 @@ def log_conversation_sentiment(chat_history, user_email):
         return
 
     sentiment_counts = {'positive': 0, 'negative': 0, 'neutral': 0}
+    sentiment_pipeline = get_sentiment_pipeline()
     
     # Process each user message in the chat history
     for message in chat_history:
         if message['role'] == 'user':
             user_input = message['parts'][0]
-            sentiment_result = perform_sentiment_analysis(user_input)
+            # Use the lazy-loaded pipeline
+            sentiment_result = perform_sentiment_analysis_lazy_load(user_input, sentiment_pipeline)
             sentiment_label = sentiment_result.get('label', 'neutral').lower()
             sentiment_counts[sentiment_label] += 1
             
