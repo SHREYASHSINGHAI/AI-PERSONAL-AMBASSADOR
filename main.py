@@ -11,34 +11,42 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
 from werkzeug.exceptions import BadRequest
 from dotenv import load_dotenv
-from sentiment_analysis import perform_sentiment_analysis_lazy_load
-from gpt_model import get_gpt_response, get_gpt_creator_response
-from transformers import pipeline
+from sentiment_analysis import perform_sentiment_analysis_lazy_load # Ensure this function is updated
+from gpt_model import get_gpt_response, get_gpt_creator_response # Ensure this file exists and is correct
+from transformers import pipeline # Needed for lazy loading the sentiment pipeline
+import hashlib # Import hashlib for password hashing
 
 # Load environment variables
 load_dotenv()
 
 # Set up Flask
 app = Flask(__name__)
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default-secret-key')
+# Flask Secret Key: Essential for session security. Uses a default if not set in .env.
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_very_secret_default_key_for_flask_sessions')
 app.permanent_session_lifetime = datetime.timedelta(days=7)
 
-# Load creator and bot info
-BOT_NAME = os.environ.get('BOT_NAME', 'Shreyash')
-CREATOR_NAME = os.environ.get('CREATOR_NAME', 'Shreyash')
-CREATOR_EMAIL = os.environ.get('CREATOR_EMAIL', 'creator@aiambassador.com')
-CREATOR_PASSWORD = os.environ.get('CREATOR_PASSWORD', 'password')
+# Load creator and bot info - now with defaults directly in code
+BOT_NAME = os.environ.get('BOT_NAME', 'Shreyash') # Default Bot Name
+CREATOR_NAME = os.environ.get('CREATOR_NAME', 'Shreyash') # Default Creator Name
+CREATOR_EMAIL = os.environ.get('CREATOR_EMAIL', 'creator@aiambassador.com') # Default Creator Email
+# CREATOR_PASSWORD is no longer directly used for verification, but kept for reference if needed
+CREATOR_PASSWORD = os.environ.get('CREATOR_PASSWORD', 'password') 
 
-# Email configuration for OTP (kept for send_otp_email if needed elsewhere, but not used for login)
+# Email configuration (These are no longer used for login, and are now optional)
+# They are kept here in case you re-introduce email functionality later.
 EMAIL_HOST = os.environ.get('EMAIL_HOST')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 't')
 
+
 # File paths
 MY_INFO_FILE = os.path.join(os.path.dirname(__file__), 'myinfo.json')
 CONVERSATION_SENTIMENT_LOG = os.path.join(os.path.dirname(__file__), 'conversation_sentiment.log')
+# Define the path for the creator password hash file
+PASSWORD_FILE = os.path.join(os.path.dirname(__file__), 'creator_password.hash')
+
 
 # Global variable for lazy-loading the sentiment analysis model
 sentiment_analysis_pipeline = None
@@ -50,6 +58,8 @@ def get_sentiment_pipeline():
     global sentiment_analysis_pipeline
     if sentiment_analysis_pipeline is None:
         print("Loading sentiment analysis model...")
+        # You might want to specify a smaller model here for better memory usage
+        # e.g., pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
         sentiment_analysis_pipeline = pipeline("sentiment-analysis")
         print("Model loaded successfully.")
     return sentiment_analysis_pipeline
@@ -104,8 +114,29 @@ def save_info(info_data):
     with open(MY_INFO_FILE, 'w') as f:
         json.dump(info_data, f, indent=2)
 
-def verify_creator(password):
-    return password == CREATOR_PASSWORD
+def verify_creator(password_attempt):
+    """
+    Verifies the creator's password against a stored hash in 'creator_password.hash'.
+    If the file doesn't exist, it prints a message and returns False.
+    """
+    try:
+        with open(PASSWORD_FILE, 'r') as f:
+            stored_hash = f.read().strip()
+        
+        # Hash the provided password attempt and compare
+        if hashlib.sha256(password_attempt.encode()).hexdigest() == stored_hash:
+            return True
+        else:
+            print("Creator password verification failed: Incorrect password.")
+            return False
+    except FileNotFoundError:
+        print(f"Creator password file '{PASSWORD_FILE}' not found.")
+        print("Please create it manually. For example, to hash 'your_password':")
+        print("  echo -n 'your_password' | sha256sum > creator_password.hash")
+        return False
+    except Exception as e:
+        print(f"An error occurred during password verification: {e}")
+        return False
 
 def is_creator_logged_in():
     return session.get('is_creator_logged_in') and session.get('logged_in_user') == CREATOR_EMAIL
@@ -156,11 +187,12 @@ def login():
     error_message = None
     if request.method == 'POST':
         user_email = request.form.get('email')
-        password_attempt = request.form.get('password') # Password is now always present, but optional for non-creator
+        password_attempt = request.form.get('password') 
 
         if not user_email:
             error_message = "Email is required."
         elif user_email == CREATOR_EMAIL:
+            # For creator, verify password from file
             if verify_creator(password_attempt):
                 session['logged_in_user'] = user_email
                 session['is_creator_logged_in'] = True
@@ -303,7 +335,7 @@ def manage_knowledge():
                     "coding language": request.form.get("skills_coding_language", "").split(','),
                     "Concepts": request.form.get("skills_concepts", "").split(','),
                     "Libraries": request.form.get("skills_libraries", "").split(','),
-                    "languages": request.form.get("skills_languages", "").split(',')
+                    "languages": request.form.get("languages", "").split(',') # Corrected from skills_languages to languages
                 },
                 "Hobbies": request.form.get("Hobbies", "").split(','),
                 "Projects": []
