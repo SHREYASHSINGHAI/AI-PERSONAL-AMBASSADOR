@@ -29,7 +29,7 @@ CREATOR_NAME = os.environ.get('CREATOR_NAME', 'Shreyash')
 CREATOR_EMAIL = os.environ.get('CREATOR_EMAIL', 'creator@aiambassador.com')
 CREATOR_PASSWORD = os.environ.get('CREATOR_PASSWORD', 'password')
 
-# Email configuration for OTP
+# Email configuration for OTP (kept for send_otp_email if needed elsewhere, but not used for login)
 EMAIL_HOST = os.environ.get('EMAIL_HOST')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
@@ -145,83 +145,41 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'logged_in_user' not in session:
-            return redirect(url_for('email_login'))
+            # Redirect to the single login page
+            return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
 
-# --- OTP and Login Routes ---
-def send_otp_email(to_email, otp_code):
-    try:
-        msg = MIMEMultipart("alternative")
-        msg['Subject'] = "Your AI Ambassador Login Code"
-        msg['From'] = EMAIL_HOST_USER
-        msg['To'] = to_email
-
-        html = f"""
-        <html>
-          <body>
-            <p>Hello,</p>
-            <p>Your one-time login code is: <strong>{otp_code}</strong></p>
-            <p>This code will expire in 10 minutes.</p>
-            <p>Thank you!</p>
-          </body>
-        </html>
-        """
-        msg.attach(MIMEText(html, 'html'))
-        
-        context = ssl.create_default_context()
-        with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
-            if EMAIL_USE_TLS:
-                server.starttls(context=context)
-            server.login(EMAIL_HOST_USER, EMAIL_HOST_PASSWORD)
-            server.sendmail(EMAIL_HOST_USER, to_email, msg.as_string())
-        return True
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        return False
-
-@app.route('/email_login', methods=['GET', 'POST'])
-def email_login():
+# --- Combined Login Route ---
+@app.route('/login', methods=['GET', 'POST'])
+def login():
     error_message = None
     if request.method == 'POST':
         user_email = request.form.get('email')
+        password_attempt = request.form.get('password') # Password is now always present, but optional for non-creator
+
         if not user_email:
             error_message = "Email is required."
-        else:
-            otp_code = ''.join(random.choices(string.digits, k=6))
-            session['otp'] = otp_code
-            session['otp_email'] = user_email
-            session['otp_time'] = datetime.datetime.now().isoformat()
-            
-            if send_otp_email(user_email, otp_code):
-                session.permanent = True
-                return redirect(url_for('verify_otp'))
-            else:
-                error_message = "Failed to send OTP. Please check your email configuration or try again."
-    return render_template('email_login.html', bot_name=BOT_NAME, creator_name=CREATOR_NAME, error=error_message)
-
-@app.route('/verify_otp', methods=['GET', 'POST'])
-def verify_otp():
-    if 'otp' not in session:
-        return redirect(url_for('email_login'))
-
-    error_message = None
-    if request.method == 'POST':
-        user_otp = request.form.get('otp')
-        if user_otp == session.get('otp'):
-            otp_time = datetime.datetime.fromisoformat(session.get('otp_time'))
-            if datetime.datetime.now() - otp_time < datetime.timedelta(minutes=10):
-                session.pop('otp')
-                session.pop('otp_time')
-                session['logged_in_user'] = session.pop('otp_email')
+        elif user_email == CREATOR_EMAIL:
+            if verify_creator(password_attempt):
+                session['logged_in_user'] = user_email
+                session['is_creator_logged_in'] = True
+                session['is_creator_mode_active'] = True
                 session.permanent = True
                 session.pop('chat_history', None)
                 return redirect(url_for('index'))
             else:
-                error_message = "OTP has expired. Please request a new one."
+                error_message = "Invalid password for creator."
         else:
-            error_message = "Invalid OTP. Please try again."
-    return render_template('verify_otp.html', bot_name=BOT_NAME, creator_name=CREATOR_NAME, error=error_message)
+            # For non-creator users, just log them in with their email (password is ignored)
+            session['logged_in_user'] = user_email
+            session['is_creator_logged_in'] = False # Ensure non-creators are not marked as creator
+            session['is_creator_mode_active'] = False
+            session.permanent = True
+            session.pop('chat_history', None)
+            return redirect(url_for('index'))
+            
+    return render_template('login.html', bot_name=BOT_NAME, creator_name=CREATOR_NAME, error=error_message)
 
 @app.route('/logout_user')
 def logout_user():
@@ -229,26 +187,9 @@ def logout_user():
     log_conversation_sentiment(session.get('chat_history', []), session.get('logged_in_user'))
     session.pop('logged_in_user', None)
     session.pop('chat_history', None)
-    return redirect(url_for('email_login'))
-
-# --- CREATOR LOGIN ROUTES ---
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    error_message = None
-    if session.get('logged_in_user') != CREATOR_EMAIL:
-        return redirect(url_for('email_login'))
-
-    if request.method == 'POST':
-        password_attempt = request.form.get('password')
-        if verify_creator(password_attempt):
-            session['is_creator_logged_in'] = True
-            session['is_creator_mode_active'] = True
-            session.permanent = True
-            session.pop('chat_history', None)
-            return redirect(url_for('index'))
-        else:
-            error_message = "Invalid password. Please try again."
-    return render_template('login.html', creator_name=CREATOR_NAME, error=error_message)
+    session.pop('is_creator_logged_in', None)
+    session.pop('is_creator_mode_active', None)
+    return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
@@ -258,7 +199,7 @@ def logout():
     session.pop('is_creator_logged_in', None)
     session.pop('is_creator_mode_active', None)
     session.pop('chat_history', None)
-    return redirect(url_for('email_login'))
+    return redirect(url_for('login'))
 
 # --- Main Chat Routes ---
 @app.route('/')
@@ -344,7 +285,7 @@ def export_sentiment():
 @login_required
 def manage_knowledge():
     if not is_creator_logged_in():
-        return redirect(url_for('email_login'))
+        return redirect(url_for('login')) # Redirect to the single login page
 
     my_info = load_info()
     message = None
