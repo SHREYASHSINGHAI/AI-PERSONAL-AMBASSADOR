@@ -228,13 +228,15 @@ def chat():
     my_info = load_info()
     session_chat_history = session.get('chat_history', [])
     lang = session.get('language', 'en')
+    user_email = session.get('logged_in_user') # Get the current logged-in user's email
     
     if is_creator_logged_in() and session.get('is_creator_mode_active', False):
         bot_response = get_gpt_creator_response(user_input, my_info)
     else:
         bot_response = get_gpt_response(user_input, my_info, session_chat_history, lang)
     
-    session_chat_history.append({"role": "user", "parts": [user_input]})
+    # Store user's email along with their message in the session chat history
+    session_chat_history.append({"role": "user", "parts": [user_input], "email": user_email})
     session_chat_history.append({"role": "model", "parts": [bot_response]})
     
     session['chat_history'] = session_chat_history[-6:]
