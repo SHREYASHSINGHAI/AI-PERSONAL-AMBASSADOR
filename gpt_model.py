@@ -7,7 +7,7 @@ load_dotenv()
 
 # Configure the Gemini API client
 # The API key should be stored in your .env file as GEMINI_API_KEY
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI_API_KEY = os.env.get("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY environment variable not set. Please set it in your .env file.")
